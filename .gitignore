@@ -1,0 +1,76 @@
+# Binaries
+dns-guardian
+dns-guardian
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Keys and certificates
+*.key
+*.crt
+*.pem
+*.p12
+*.pfx
+ca.key
+ca.crt
+
+# Local configuration
+config.local.yaml
+config.yaml
+.env
+.env.local
+
+# Build artifacts
+dist/
+build/
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Logs
+*.log
+logs/
+/var/log/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# Go specific
+vendor/
+go.work
+go.work.sum
+
+# Test outputs
+test-results/
+*.prof
+*.test
+
+# Security sensitive
+aws-credentials
+credentials.json
+secrets.yaml

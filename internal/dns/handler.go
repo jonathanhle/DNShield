@@ -1,0 +1,122 @@
+package dns
+
+import (
+	"net"
+	"strings"
+	"time"
+
+	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
+)
+
+// Handler handles DNS queries
+type Handler struct {
+	blocker   *Blocker
+	upstreams []string
+	blockIP   net.IP
+	cache     *Cache
+}
+
+// NewHandler creates a new DNS handler
+func NewHandler(blocker *Blocker, upstreams []string, blockIP string) *Handler {
+	ip := net.ParseIP(blockIP)
+	if ip == nil {
+		ip = net.ParseIP("127.0.0.1")
+	}
+	
+	return &Handler{
+		blocker:   blocker,
+		upstreams: upstreams,
+		blockIP:   ip,
+		cache:     NewCache(10000, 1*time.Hour),
+	}
+}
+
+// ServeDNS implements the dns.Handler interface
+func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Compress = true
+	
+	// Handle only A and AAAA queries
+	if len(r.Question) == 0 {
+		w.WriteMsg(m)
+		return
+	}
+	
+	question := r.Question[0]
+	domain := strings.TrimSuffix(question.Name, ".")
+	
+	logrus.WithFields(logrus.Fields{
+		"domain": domain,
+		"type":   dns.TypeToString[question.Qtype],
+	}).Debug("DNS query received")
+	
+	// Check cache first
+	if cached := h.cache.Get(domain, question.Qtype); cached != nil {
+		m.Answer = append(m.Answer, cached...)
+		w.WriteMsg(m)
+		return
+	}
+	
+	// Check if domain is blocked
+	if h.blocker.IsBlocked(domain) {
+		logrus.WithField("domain", domain).Info("Blocked domain")
+		
+		switch question.Qtype {
+		case dns.TypeA:
+			rr := &dns.A{
+				Hdr: dns.RR_Header{
+					Name:   question.Name,
+					Rrtype: dns.TypeA,
+					Class:  dns.ClassINET,
+					Ttl:    10,
+				},
+				A: h.blockIP,
+			}
+			m.Answer = append(m.Answer, rr)
+		case dns.TypeAAAA:
+			// Return empty response for IPv6
+			m.Rcode = dns.RcodeSuccess
+		default:
+			m.Rcode = dns.RcodeNotImplemented
+		}
+		
+		w.WriteMsg(m)
+		return
+	}
+	
+	// Forward to upstream
+	h.forwardToUpstream(w, r, m, domain, question.Qtype)
+}
+
+// forwardToUpstream forwards the query to upstream DNS servers
+func (h *Handler) forwardToUpstream(w dns.ResponseWriter, r *dns.Msg, m *dns.Msg, domain string, qtype uint16) {
+	c := new(dns.Client)
+	c.Timeout = 5 * time.Second
+	
+	for _, upstream := range h.upstreams {
+		// Add port if not specified
+		if !strings.Contains(upstream, ":") {
+			upstream += ":53"
+		}
+		
+		resp, _, err := c.Exchange(r, upstream)
+		if err != nil {
+			logrus.WithError(err).WithField("upstream", upstream).Warn("Failed to query upstream")
+			continue
+		}
+		
+		// Cache successful responses
+		if resp.Rcode == dns.RcodeSuccess && len(resp.Answer) > 0 {
+			h.cache.Set(domain, qtype, resp.Answer)
+		}
+		
+		w.WriteMsg(resp)
+		return
+	}
+	
+	// All upstreams failed
+	m.Rcode = dns.RcodeServerFailure
+	w.WriteMsg(m)
+}

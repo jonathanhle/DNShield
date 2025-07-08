@@ -1,0 +1,76 @@
+# DNS Guardian Demo Rules
+# Upload this file to: s3://hoang-my-test-s3-bucket/blocklists/demo.yaml
+
+version: "1.0"
+updated: 2024-01-20T10:00:00Z
+
+# External blocklist sources to fetch and parse
+sources:
+  # Popular ad and tracker blocklists
+  - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+  - https://someonewhocares.org/hosts/zero/hosts
+  - https://raw.githubusercontent.com/AdguardTeam/AdguardSDNSFilter/master/Filters/filter.txt
+  
+# Direct domain blocks for demo purposes
+domains:
+  # Demo/test domains
+  - example-blocked.com
+  - test-malware.com
+  - demo-blocked.site
+  
+  # Common ad networks
+  - doubleclick.net
+  - googleadservices.com
+  - googlesyndication.com
+  - google-analytics.com
+  - googletagmanager.com
+  
+  # Social media trackers
+  - facebook-analytics.com
+  - analytics.twitter.com
+  - analytics.tiktok.com
+  
+  # News sites (for demo purposes)
+  - cnn.com
+  - foxnews.com
+  
+  # Other trackers
+  - scorecardresearch.com
+  - quantserve.com
+  - outbrain.com
+  - taboola.com
+  
+  # Malware test domains
+  - malware-test-domain.com
+  - phishing-test.com
+  - virus-test-site.com
+
+# Whitelist - domains that should never be blocked
+whitelist:
+  # Critical services
+  - github.com
+  - api.github.com
+  - aws.amazon.com
+  - console.aws.amazon.com
+  
+  # Development tools
+  - golang.org
+  - pkg.go.dev
+  - npmjs.com
+  - pypi.org
+  
+  # Your company domains (add as needed)
+  # - yourcompany.com
+  # - api.yourcompany.com
+
+# Regex patterns for advanced blocking (optional)
+regex:
+  # Block all subdomains of tracking domains
+  - ".*\\.doubleclick\\.net$"
+  - ".*\\.googleadservices\\.com$"
+  - ".*\\.facebook\\.com$"  # Blocks all Facebook subdomains
+  - ".*\\.tiktok\\.com$"    # Blocks all TikTok subdomains
+  
+  # Block numeric tracking domains
+  - "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"  # IP addresses as domains
+  - "^track[0-9]+\\."                       # track1.example.com, track2.example.com, etc.

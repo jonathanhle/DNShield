@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Network server capability -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+    
+    <!-- Network client capability -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    
+    <!-- Allow keychain access -->
+    <key>com.apple.security.keychain-access-groups</key>
+    <array>
+        <string>com.dnsguardian</string>
+    </array>
+    
+    <!-- Allow loading system extensions (future use) -->
+    <key>com.apple.developer.system-extension.install</key>
+    <true/>
+    
+    <!-- Required for notarization -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    
+    <!-- Allow execution of other programs (for security commands) -->
+    <key>com.apple.security.inherit</key>
+    <true/>
+</dict>
+</plist>

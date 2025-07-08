@@ -1,0 +1,373 @@
+# Troubleshooting Guide
+
+This guide covers common issues and their solutions when running DNS Guardian.
+
+## Quick Diagnostics
+
+Run the status command to check system health:
+```bash
+./dns-guardian status
+```
+
+## Common Issues
+
+### 1. Certificate Warnings Still Appear
+
+**Symptoms:**
+- Browser shows "Your connection is not private"
+- NET::ERR_CERT_AUTHORITY_INVALID errors
+
+**Solutions:**
+
+1. **Verify CA is installed:**
+   ```bash
+   # Check if CA is in keychain
+   security find-certificate -c "DNS Guardian Root CA" /Library/Keychains/System.keychain
+   
+   # If not found, reinstall
+   ./dns-guardian install-ca
+   
+   # For v2 mode (System Keychain)
+   sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+   ```
+
+2. **Clear browser cache:**
+   - Chrome: Settings → Privacy → Clear browsing data → Cached images and files
+   - Safari: Develop → Empty Caches
+   - Firefox: Settings → Privacy → Clear Data
+
+3. **Check certificate generation:**
+   ```bash
+   # Enable debug logging
+   sudo ./dns-guardian run --config config.yaml
+   
+   # Look for certificate generation logs
+   # For v1 mode
+   tail -f /var/log/dns-guardian.log | grep "Generated certificate"
+   
+   # For v2 mode (audit logs)
+   tail -f ~/.dns-guardian/audit/*.log | grep "CERT_GENERATED"
+   ```
+
+4. **Trust the CA manually:**
+   - Open Keychain Access
+   - Find "DNS Guardian Root CA" certificate
+   - Double-click and set to "Always Trust"
+
+### 2. DNS Not Resolving
+
+**Symptoms:**
+- Cannot access any websites
+- "Server not found" errors
+
+**Solutions:**
+
+1. **Verify DNS Guardian is running:**
+   ```bash
+   # Check if process is running
+   ps aux | grep dns-guardian
+   
+   # Check if port 53 is listening
+   sudo lsof -i :53
+   ```
+
+2. **Test DNS resolution:**
+   ```bash
+   # Test using DNS Guardian
+   dig @127.0.0.1 google.com
+   
+   # Test upstream DNS
+   dig @1.1.1.1 google.com
+   ```
+
+3. **Check DNS configuration:**
+   ```bash
+   # View current DNS servers
+   networksetup -getdnsservers Wi-Fi
+   
+   # Should show: 127.0.0.1
+   ```
+
+4. **Review logs for errors:**
+   ```bash
+   sudo ./dns-guardian run --config config.yaml
+   # Look for connection errors or timeouts
+   ```
+
+### 3. Cannot Bind to Port 53
+
+**Symptoms:**
+- Error: "bind: permission denied"
+- Error: "bind: address already in use"
+
+**Solutions:**
+
+1. **Run with sudo:**
+   ```bash
+   sudo ./dns-guardian run
+   ```
+
+2. **Check for conflicting services:**
+   ```bash
+   # Find what's using port 53
+   sudo lsof -i :53
+   
+   # Common conflicts:
+   # - mDNSResponder (normal, ignore)
+   # - dnsmasq (stop it)
+   # - systemd-resolved (stop it)
+   ```
+
+3. **Stop conflicting services:**
+   ```bash
+   # Stop dnsmasq
+   brew services stop dnsmasq
+   
+   # Stop local DNS servers
+   sudo killall -9 named
+   ```
+
+### 4. S3 Rules Not Updating
+
+**Symptoms:**
+- Old rules still active
+- "Failed to fetch rules" errors
+
+**Solutions:**
+
+1. **Check AWS credentials:**
+   ```bash
+   # Test AWS access
+   aws s3 ls s3://your-bucket/
+   
+   # Set credentials
+   export AWS_ACCESS_KEY_ID="your-key"
+   export AWS_SECRET_ACCESS_KEY="your-secret"
+   ```
+
+2. **Verify S3 bucket configuration:**
+   ```yaml
+   # config.yaml
+   s3:
+     bucket: "correct-bucket-name"
+     region: "correct-region"
+     rulesPath: "path/to/rules.yaml"
+   ```
+
+3. **Force rule update:**
+   ```bash
+   ./dns-guardian update-rules
+   ```
+
+4. **Check S3 permissions:**
+   - Ensure IAM user/role has s3:GetObject permission
+   - Check bucket policy allows access
+
+### 5. Block Page Not Showing
+
+**Symptoms:**
+- Connection refused instead of block page
+- Timeout when accessing blocked sites
+
+**Solutions:**
+
+1. **Verify domain is blocked:**
+   ```bash
+   # Check DNS resolution
+   dig @127.0.0.1 blocked-domain.com
+   # Should return 127.0.0.1
+   ```
+
+2. **Check HTTPS proxy:**
+   ```bash
+   # Verify port 443 is listening
+   sudo lsof -i :443
+   
+   # Test direct connection
+   curl -k https://127.0.0.1
+   ```
+
+3. **Review certificate generation:**
+   - Enable debug logging
+   - Look for certificate errors
+   - Check certificate cache is working
+
+### 6. High CPU/Memory Usage
+
+**Symptoms:**
+- dns-guardian using excessive resources
+- System slowdown
+
+**Solutions:**
+
+1. **Check cache size:**
+   ```yaml
+   # Reduce cache size in config.yaml
+   dns:
+     cacheSize: 5000  # Lower from 10000
+   ```
+
+2. **Review blocklist size:**
+   ```bash
+   # Check number of blocked domains
+   ./dns-guardian status
+   ```
+
+3. **Enable rate limiting (future feature)**
+
+4. **Check for DNS loops:**
+   - Ensure DNS Guardian isn't querying itself
+   - Verify upstream DNS servers are correct
+
+## Debug Mode
+
+Enable verbose logging for troubleshooting:
+
+```yaml
+# config.yaml
+agent:
+  logLevel: "debug"
+```
+
+Or via command line:
+```bash
+sudo ./dns-guardian run --log-level debug
+```
+
+## Log Analysis
+
+### Important log patterns:
+
+```bash
+# Certificate generation issues
+grep "Failed to generate certificate" /var/log/dns-guardian.log
+
+# DNS resolution failures  
+grep "Failed to query upstream" /var/log/dns-guardian.log
+
+# S3 sync problems
+grep "Failed to fetch rules" /var/log/dns-guardian.log
+
+# Memory/performance issues
+grep "Cache full" /var/log/dns-guardian.log
+```
+
+## v2.0 Mode Specific Issues
+
+### System Keychain Access Denied
+
+**Symptoms:**
+- Error: "Write permissions error" when installing CA
+- Cannot access System keychain
+
+**Solutions:**
+
+1. **Ensure running with sudo:**
+   ```bash
+   sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+   ```
+
+2. **Check System keychain permissions:**
+   ```bash
+   ls -la /Library/Keychains/System.keychain
+   ```
+
+3. **Verify v2 mode is enabled:**
+   ```bash
+   echo $DNS_GUARDIAN_SECURITY_MODE  # Should show "v2"
+   echo $DNS_GUARDIAN_USE_KEYCHAIN   # Should show "true"
+   ```
+
+### Certificate Generation Fails in v2 Mode
+
+**Symptoms:**
+- "Failed to load key from System keychain" errors
+- Certificate generation timeout
+
+**Solutions:**
+
+1. **Verify key exists in System keychain:**
+   ```bash
+   sudo security find-generic-password -s "com.dnsguardian.ca" /Library/Keychains/System.keychain
+   ```
+
+2. **Check audit logs:**
+   ```bash
+   tail -f ~/.dns-guardian/audit/audit-*.log
+   ```
+
+3. **Reinstall CA in v2 mode:**
+   ```bash
+   # Clean up first
+   sudo security delete-generic-password -s "com.dnsguardian.ca" /Library/Keychains/System.keychain 2>/dev/null
+   sudo security delete-certificate -c "DNS Guardian Root CA" /Library/Keychains/System.keychain 2>/dev/null
+   
+   # Reinstall
+   sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+   ```
+
+## Getting Help
+
+If problems persist:
+
+1. **Collect diagnostic information:**
+   ```bash
+   ./dns-guardian status > diagnostic.txt
+   ./dns-guardian version >> diagnostic.txt
+   sw_vers >> diagnostic.txt  # macOS version
+   ```
+
+2. **Enable debug logging and capture:**
+   ```bash
+   sudo ./dns-guardian run --log-level debug 2>&1 | tee debug.log
+   ```
+
+3. **Check known issues:**
+   - Review GitHub issues
+   - Check release notes
+
+4. **Contact support with:**
+   - Diagnostic output
+   - Debug logs
+   - Configuration (sanitized)
+   - Steps to reproduce
+
+## Performance Tuning
+
+### DNS Performance
+
+```yaml
+# Optimize for speed
+dns:
+  upstreams:
+    - "1.1.1.1"  # Fastest first
+    - "8.8.8.8"  # Fallback
+  timeout: "2s"  # Quick failover
+  cacheSize: 50000  # Large cache
+```
+
+### Memory Usage
+
+```yaml
+# Optimize for low memory
+dns:
+  cacheSize: 1000
+  cacheTTL: "30m"
+  
+# Disable debug logging
+agent:
+  logLevel: "warn"
+```
+
+### Network Issues
+
+For unreliable networks:
+```yaml
+dns:
+  timeout: "10s"  # Longer timeout
+  upstreams:
+    - "8.8.8.8"     # Multiple upstreams
+    - "8.8.4.4"
+    - "1.1.1.1"
+    - "1.0.0.1"
+```

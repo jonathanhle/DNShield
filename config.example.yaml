@@ -1,0 +1,52 @@
+# DNS Guardian Configuration Example
+# Copy this file to config.yaml and customize for your environment
+
+# Agent settings
+agent:
+  dnsPort: 53      # DNS server port (requires root)
+  httpPort: 80     # HTTP redirect port
+  httpsPort: 443   # HTTPS block page port
+  logLevel: info   # debug, info, warn, error
+
+# DNS server configuration
+dns:
+  # Upstream DNS servers (tried in order)
+  upstreams:
+    - "1.1.1.1"    # Cloudflare primary
+    - "1.0.0.1"    # Cloudflare secondary
+    - "8.8.8.8"    # Google primary
+    - "8.8.4.4"    # Google secondary
+  
+  # Cache settings
+  cacheSize: 10000  # Number of entries to cache
+  cacheTTL: "1h"    # How long to cache entries
+
+# S3 configuration for centralized rule management
+s3:
+  # S3 bucket containing blocklist rules
+  bucket: "your-company-dns-rules"
+  
+  # AWS region where bucket is located
+  region: "us-east-1"
+  
+  # Path to rules file within bucket
+  rulesPath: "production/rules.yaml"
+  
+  # How often to check for rule updates
+  updateInterval: "5m"
+  
+  # AWS credentials (optional - remove to use IAM role or environment variables)
+  # accessKeyId: "AKIAXXXXXXXXX"
+  # secretKey: "xxxxxxxxxxxxx"
+
+# Blocking behavior
+blocking:
+  defaultAction: "block"   # What to do with queries (block or allow)
+  blockType: "sinkhole"    # How to block: sinkhole, nxdomain, or refused
+  blockTTL: "10s"         # TTL for blocked responses
+
+# Test domains (remove in production)
+# These domains will be blocked for testing
+testDomains:
+  - "example-blocked.com"
+  - "test-blocked.local"
