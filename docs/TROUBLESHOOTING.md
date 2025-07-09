@@ -86,6 +86,12 @@ Run the status command to check system health:
    networksetup -getdnsservers Wi-Fi
    
    # Should show: 127.0.0.1
+   
+   # If not, configure DNS automatically
+   sudo ./dns-guardian configure-dns
+   
+   # Or run with auto-configuration
+   sudo ./dns-guardian run --auto-configure-dns
    ```
 
 4. **Review logs for errors:**
@@ -192,7 +198,57 @@ Run the status command to check system health:
    - Look for certificate errors
    - Check certificate cache is working
 
-### 6. High CPU/Memory Usage
+### 6. DNS Configuration Keeps Reverting
+
+**Symptoms:**
+- DNS settings change back to previous values
+- Network reconnects reset DNS
+- VPN connections override DNS
+
+**Solutions:**
+
+1. **Use auto-configuration mode:**
+   ```bash
+   # Run with automatic DNS monitoring
+   sudo ./dns-guardian run --auto-configure-dns
+   
+   # This checks DNS every minute and auto-corrects changes
+   ```
+
+2. **Check for conflicting software:**
+   ```bash
+   # Look for VPN clients, network managers
+   ps aux | grep -i "vpn\|dns"
+   ```
+
+3. **Check MDM profiles:**
+   ```bash
+   # List configuration profiles
+   profiles show
+   
+   # Look for DNS-related settings
+   ```
+
+4. **Verify all interfaces are configured:**
+   ```bash
+   # Check all interfaces
+   networksetup -listallnetworkservices
+   
+   # Configure each manually if needed
+   sudo networksetup -setdnsservers "Wi-Fi" 127.0.0.1
+   sudo networksetup -setdnsservers "Ethernet" 127.0.0.1
+   ```
+
+5. **Monitor DNS changes:**
+   ```bash
+   # Watch for DNS changes in real-time
+   while true; do
+     echo "$(date): $(networksetup -getdnsservers Wi-Fi)"
+     sleep 10
+   done
+   ```
+
+### 7. High CPU/Memory Usage
 
 **Symptoms:**
 - dns-guardian using excessive resources

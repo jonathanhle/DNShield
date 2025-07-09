@@ -227,11 +227,11 @@ audit_table = dynamodb.Table('DNSGuardianAuditLog')
 # Configuration
 KMS_KEY_ID = os.environ['KMS_KEY_ID']
 BLOCKED_DOMAINS = [
-    '*.coinbase.com',
-    '*.binance.com', 
-    '*.kraken.com',
     '*.chase.com',
-    '*.wellsfargo.com'
+    '*.wellsfargo.com',
+    '*.bankofamerica.com',
+    '*.jpmorgan.com',
+    '*.citi.com'
 ]
 
 def lambda_handler(event, context):
@@ -835,7 +835,7 @@ aws lambda put-function-concurrency \
 
 This remote signing architecture provides the highest level of security for DNS Guardian deployments. By keeping the CA private key in AWS KMS and requiring mTLS authentication, you ensure that even a fully compromised endpoint cannot steal the CA key or generate unauthorized certificates.
 
-For production deployments at financial institutions or cryptocurrency exchanges, this architecture meets all compliance requirements while remaining cost-effective and scalable.
+For production deployments at financial institutions or other high-security environments, this architecture meets all compliance requirements while remaining cost-effective and scalable.
 
 ### Next Steps
 

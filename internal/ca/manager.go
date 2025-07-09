@@ -28,7 +28,7 @@ func UseKeychain() bool {
 		return true
 	}
 	
-	// Check if we're in v2.0 mode (for crypto exchange)
+	// Check if we're in v2.0 mode (for high-security environment)
 	if os.Getenv("DNS_GUARDIAN_SECURITY_MODE") == "v2" {
 		return true
 	}

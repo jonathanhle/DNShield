@@ -78,6 +78,34 @@ testDomains:
   - "test.doubleclick.net"
 ```
 
+## DNS Configuration Options
+
+DNS Guardian can automatically manage DNS settings on all network interfaces:
+
+### Command Line Options
+
+```bash
+# Configure DNS on all interfaces
+sudo ./dns-guardian configure-dns
+
+# Restore previous DNS settings
+sudo ./dns-guardian configure-dns --restore
+
+# Force configuration without prompts
+sudo ./dns-guardian configure-dns --force
+
+# Run with automatic DNS configuration
+sudo ./dns-guardian run --auto-configure-dns
+```
+
+### Auto-Configuration Behavior
+
+When running with `--auto-configure-dns`:
+- DNS is automatically set to 127.0.0.1 on all interfaces at startup
+- DNS settings are monitored every minute
+- Any changes are automatically corrected
+- Previous settings are saved for restoration
+
 ## Environment Variables
 
 All configuration options can be set via environment variables:

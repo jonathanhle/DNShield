@@ -6,8 +6,8 @@ package security
 import "time"
 
 // Certificate validity periods - hardcoded for security
-// These values are specifically chosen for cryptocurrency exchange environments
-// where certificate compromise could lead to significant financial loss.
+// These values are specifically chosen for high-security environments
+// where certificate compromise must be minimized.
 const (
 	// CAValidityYears is the validity period for the Certificate Authority
 	// 2 years balances security with operational overhead of CA rotation

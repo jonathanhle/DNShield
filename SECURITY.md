@@ -265,7 +265,7 @@ We take security seriously. If you discover a vulnerability:
 
 ## 🔐 Enabling v2.0 Security Mode
 
-For cryptocurrency exchanges and high-security environments:
+For financial institutions and high-security environments:
 
 ```bash
 # Install CA with v2.0 security mode (System Keychain)

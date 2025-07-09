@@ -88,7 +88,7 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 - **Multi-Interface Support**: Works with Wi-Fi, Ethernet, Thunderbolt, USB, VPN
 - **Configuration Backup**: Saves current DNS settings before changes
 - **Easy Restoration**: Restore previous DNS settings with one command
-- **Drift Protection**: Auto-monitors and corrects DNS configuration changes
+- **Drift Protection**: Auto-monitors and corrects DNS configuration changes every minute
 - **Zero Manual Setup**: Run with `--auto-configure-dns` for fully automated setup
 
 ## 🏗️ Architecture
@@ -255,7 +255,7 @@ See [docs/MDM_DEPLOYMENT.md](docs/MDM_DEPLOYMENT.md) for detailed instructions.
 - ✅ Root-accessible key storage for Jamf/Munki deployment
 - ✅ Enhanced audit logging (JSON format)
 - ✅ Non-extractable key storage
-- ✅ Cryptocurrency exchange ready
+- ✅ High-security environment ready
 
 **v2.0 System Keychain Storage:**
 - CA private keys stored in `/Library/Keychains/System.keychain`
@@ -282,13 +282,13 @@ make install-v2  # Installs CA with System keychain
 make run-v2      # Runs in v2 mode
 ```
 
-## 🏦 Cryptocurrency Exchange Deployment
+## 🏦 High-Security Deployment
 
-⚠️ **CRITICAL SECURITY NOTICE**: The current v2 implementation stores CA private keys in the System Keychain but they remain extractable by any root process. This is NOT sufficient for cryptocurrency exchanges where a compromise could lead to significant financial losses.
+⚠️ **CRITICAL SECURITY NOTICE**: The current v2 implementation stores CA private keys in the System Keychain but they remain extractable by any root process. This is NOT sufficient for high-security environments like financial institutions where a compromise could lead to significant losses.
 
-### Security Requirements for Crypto Exchanges
+### Security Requirements for Financial Institutions
 
-For production deployment at a cryptocurrency exchange, you MUST implement one of the following:
+For production deployment at banks or other high-security environments, you MUST implement one of the following:
 
 ### Option 1: Hardware Security Module (Recommended)
 ```bash
@@ -324,13 +324,13 @@ For T2/Apple Silicon Macs, implement proper Secure Enclave integration:
 - Non-extractable even with root
 - Requires code signing
 
-### Minimum Security Checklist for Exchanges
+### Minimum Security Checklist for High-Security Environments
 
 - [ ] **Never use current v2 implementation as-is** - keys are extractable
 - [ ] **Implement hardware-backed key storage** (HSM or Secure Enclave)
 - [ ] **Code signing** with hardened runtime and notarization
 - [ ] **Rate limiting** - Max 10 certificates per minute
-- [ ] **Domain blocklist** - Never generate certs for exchange domains
+- [ ] **Domain blocklist** - Never generate certs for sensitive domains
 - [ ] **Real-time alerting** - Alert security team on every cert generation
 - [ ] **Certificate Transparency** - Log all certificates to CT logs
 - [ ] **Multi-person approval** - CA operations require multiple approvals
@@ -348,7 +348,7 @@ For T2/Apple Silicon Macs, implement proper Secure Enclave integration:
 ### Example: Production-Ready Architecture
 
 ```yaml
-# dns-guardian-exchange.yaml
+# dns-guardian-secure.yaml
 security:
   mode: "hsm"
   hsm:
@@ -361,10 +361,9 @@ security:
     certs_per_domain_per_hour: 5
   
   blocked_domains:
-    - "*.coinbase.com"
-    - "*.binance.com"
-    - "*.kraken.com"
-    - "*.exchange-internal.com"
+    - "*.internal-bank.com"
+    - "*.secure-systems.com"
+    - "*.confidential.org"
   
   monitoring:
     siem_endpoint: "https://siem.internal/api/events"
@@ -378,17 +377,17 @@ security:
 
 ### Getting Help
 
-For cryptocurrency exchange deployments:
+For high-security deployments:
 1. Contact your security team first
 2. Consider hiring external security consultants
 3. Test extensively in staging environment
 4. Never compromise on security for convenience
 
-**Remember**: In crypto, one compromised certificate could mean millions in losses.
+**Remember**: In high-security environments, one compromised certificate could lead to significant breaches.
 
 ## 🔐 Most Secure Option: Remote Signing Service
 
-For organizations requiring the highest level of security (financial institutions, cryptocurrency exchanges, government agencies), the **Remote Signing Service** architecture provides complete CA key isolation.
+For organizations requiring the highest level of security (financial institutions, government agencies, healthcare systems), the **Remote Signing Service** architecture provides complete CA key isolation.
 
 ### Why Remote Signing is the Gold Standard
 
