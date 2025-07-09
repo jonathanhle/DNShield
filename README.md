@@ -7,6 +7,17 @@ Enterprise DNS filtering with transparent HTTPS interception for macOS.
 [![Commercial License](https://img.shields.io/badge/Commercial%20License-Available-green.svg)](LICENSE-COMMERCIAL.md)
 [![Platform](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
 
+> ⚠️ **EXPERIMENTAL SOFTWARE - USE AT YOUR OWN RISK**
+> 
+> This repository contains experimental software that is under active development. 
+> - **Breaking changes** may occur without notice
+> - **Data loss** or system instability may occur
+> - **Might Not suitable** for production
+> - **No warranties** or guarantees are provided
+> 
+> This software modifies system DNS settings and installs a Certificate Authority. 
+> Only use if you understand the implications and are comfortable with potential risks.
+
 ## 🎯 Overview
 
 DNShield is a lightweight, single-binary DNS filtering solution that provides transparent HTTPS interception without certificate warnings. Designed for enterprise deployment, it combines DNS-level blocking with dynamic certificate generation for seamless security.
