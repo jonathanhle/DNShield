@@ -74,7 +74,13 @@ func runAgent(opts *RunOptions) error {
 	}
 
 	// Set up logging
-	level, err := logrus.ParseLevel(cfg.Agent.LogLevel)
+	logLevel := cfg.Agent.LogLevel
+	// Allow environment variable override
+	if envLogLevel := os.Getenv("DNSHIELD_LOG_LEVEL"); envLogLevel != "" {
+		logLevel = envLogLevel
+	}
+	
+	level, err := logrus.ParseLevel(logLevel)
 	if err != nil {
 		level = logrus.InfoLevel
 	}
@@ -296,10 +302,15 @@ func getSecurityMode() string {
 
 // monitorDNSConfiguration periodically checks and fixes DNS configuration
 func monitorDNSConfiguration() {
+	logrus.Info("Starting DNS configuration monitor")
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
+	checkCount := 0
 	for range ticker.C {
+		checkCount++
+		logrus.WithField("check_count", checkCount).Debug("Performing DNS configuration check")
+		
 		if err := VerifyDNSConfiguration(); err != nil {
 			logrus.WithError(err).Warn("DNS configuration drift detected, reconfiguring...")
 
@@ -311,6 +322,8 @@ func monitorDNSConfiguration() {
 				logrus.Info("DNS configuration restored")
 				audit.Log(audit.EventConfigChange, "warning", "DNS configuration drift corrected", nil)
 			}
+		} else {
+			logrus.WithField("check_count", checkCount).Debug("DNS configuration verified - no drift detected")
 		}
 	}
 }

@@ -18,6 +18,7 @@ help:
 	@echo "  make install         Install DNShield (simple mode)"
 	@echo "  make run            Run DNShield"
 	@echo "  make secure         Install secure mode + run with auto DNS (all-in-one)"
+	@echo "  make secure-debug   Same as secure but with debug logging"
 	@echo ""
 	@echo "Commands:"
 	@echo "  make build          Build the binary"
@@ -81,6 +82,13 @@ secure: install-secure
 	@echo ""
 	@echo "Starting DNShield in secure mode with auto DNS configuration..."
 	@sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true ./$(BINARY_NAME) run --auto-configure-dns
+
+# Secure mode with debug logging
+secure-debug: install-secure
+	@echo ""
+	@echo "Starting DNShield in secure mode with DEBUG logging..."
+	@echo "This will show detailed information about DNS configuration and all operations."
+	@sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true DNSHIELD_LOG_LEVEL=debug ./$(BINARY_NAME) run --auto-configure-dns
 
 # Run DNShield (auto-detects installation mode)
 run: build

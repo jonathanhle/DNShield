@@ -70,15 +70,24 @@ func getNetworkInterfaces() ([]NetworkInterface, error) {
 		return nil, fmt.Errorf("failed to list network services: %v", err)
 	}
 
+	logrus.WithField("raw_output", string(output)).Debug("Network services list")
+
 	lines := strings.Split(string(output), "\n")
 	var interfaces []NetworkInterface
+	logrus.WithField("service_count", len(lines)-1).Debug("Found network services")
 
 	// Skip first line (header) and process each service
 	for i := 1; i < len(lines); i++ {
 		service := strings.TrimSpace(lines[i])
-		if service == "" || strings.HasPrefix(service, "*") {
+		if service == "" {
+			continue
+		}
+		if strings.HasPrefix(service, "*") {
+			logrus.WithField("service", service).Debug("Skipping disabled service")
 			continue // Skip disabled services
 		}
+
+		logrus.WithField("service", service).Debug("Processing network service")
 
 		// Get current DNS servers
 		dnsCmd := exec.Command("networksetup", "-getdnsservers", service)
@@ -90,6 +99,11 @@ func getNetworkInterfaces() ([]NetworkInterface, error) {
 
 		var currentDNS []string
 		dnsLines := strings.Split(strings.TrimSpace(string(dnsOutput)), "\n")
+		logrus.WithFields(logrus.Fields{
+			"service":    service,
+			"dns_output": strings.TrimSpace(string(dnsOutput)),
+		}).Debug("DNS servers output")
+
 		for _, dns := range dnsLines {
 			dns = strings.TrimSpace(dns)
 			if dns != "" && !strings.Contains(dns, "There aren't any DNS Servers") {
@@ -97,13 +111,21 @@ func getNetworkInterfaces() ([]NetworkInterface, error) {
 			}
 		}
 
-		interfaces = append(interfaces, NetworkInterface{
+		iface := NetworkInterface{
 			Name:    service,
 			Type:    determineInterfaceType(service),
 			Current: currentDNS,
-		})
+		}
+		interfaces = append(interfaces, iface)
+
+		logrus.WithFields(logrus.Fields{
+			"interface": iface.Name,
+			"type":      iface.Type,
+			"dns":       iface.Current,
+		}).Debug("Added interface to list")
 	}
 
+	logrus.WithField("interface_count", len(interfaces)).Info("Network interfaces discovered")
 	return interfaces, nil
 }
 
@@ -177,16 +199,36 @@ func configureDNS(opts *ConfigureDNSOptions) error {
 		return fmt.Errorf("no network interfaces found")
 	}
 
-	// Display current configuration
-	fmt.Println("\n🔍 Current DNS Configuration:")
-	fmt.Println("─────────────────────────────")
+	// Log current configuration
+	logrus.Info("Current DNS Configuration:")
 	for _, iface := range interfaces {
-		fmt.Printf("%-20s [%s]\n", iface.Name, iface.Type)
 		if len(iface.Current) == 0 {
-			fmt.Println("  DNS: DHCP (automatic)")
+			logrus.WithFields(logrus.Fields{
+				"interface": iface.Name,
+				"type":      iface.Type,
+				"dns":       "DHCP (automatic)",
+			}).Info("Interface DNS status")
 		} else {
-			for _, dns := range iface.Current {
-				fmt.Printf("  DNS: %s\n", dns)
+			logrus.WithFields(logrus.Fields{
+				"interface": iface.Name,
+				"type":      iface.Type,
+				"dns":       iface.Current,
+			}).Info("Interface DNS status")
+		}
+	}
+
+	// Display to stdout only when not forced (interactive mode)
+	if !opts.Force {
+		fmt.Println("\n🔍 Current DNS Configuration:")
+		fmt.Println("─────────────────────────────")
+		for _, iface := range interfaces {
+			fmt.Printf("%-20s [%s]\n", iface.Name, iface.Type)
+			if len(iface.Current) == 0 {
+				fmt.Println("  DNS: DHCP (automatic)")
+			} else {
+				for _, dns := range iface.Current {
+					fmt.Printf("  DNS: %s\n", dns)
+				}
 			}
 		}
 	}
@@ -210,24 +252,52 @@ func configureDNS(opts *ConfigureDNSOptions) error {
 	}
 
 	// Configure each interface
-	fmt.Println("\n🔧 Configuring DNS...")
+	logrus.Info("Configuring DNS on all interfaces...")
+	if !opts.Force {
+		fmt.Println("\n🔧 Configuring DNS...")
+	}
 	successCount := 0
 	failureCount := 0
 
 	for _, iface := range interfaces {
-		fmt.Printf("  %-20s ", iface.Name)
+		logrus.WithFields(logrus.Fields{
+			"interface":    iface.Name,
+			"type":         iface.Type,
+			"previous_dns": iface.Current,
+		}).Info("Configuring DNS on interface")
+
+		if !opts.Force {
+			fmt.Printf("  %-20s ", iface.Name)
+		}
 
 		// Set DNS to 127.0.0.1
 		cmd := exec.Command("networksetup", "-setdnsservers", iface.Name, "127.0.0.1")
+		logrus.WithFields(logrus.Fields{
+			"command":   "networksetup",
+			"args":      []string{"-setdnsservers", iface.Name, "127.0.0.1"},
+			"interface": iface.Name,
+		}).Debug("Executing networksetup command")
+
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			fmt.Printf("❌ Failed: %s\n", strings.TrimSpace(string(output)))
-			logrus.WithError(err).WithField("interface", iface.Name).Error("Failed to set DNS")
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"interface": iface.Name,
+				"output":    strings.TrimSpace(string(output)),
+			}).Error("Failed to set DNS")
+			if !opts.Force {
+				fmt.Printf("❌ Failed: %s\n", strings.TrimSpace(string(output)))
+			}
 			failureCount++
 			continue
 		}
 
-		fmt.Println("✅ Configured")
+		logrus.WithFields(logrus.Fields{
+			"interface": iface.Name,
+			"output":    strings.TrimSpace(string(output)),
+		}).Info("Successfully configured DNS on interface")
+		if !opts.Force {
+			fmt.Println("✅ Configured")
+		}
 		successCount++
 
 		// Audit log
@@ -239,18 +309,54 @@ func configureDNS(opts *ConfigureDNSOptions) error {
 		})
 	}
 
-	// Summary
-	fmt.Printf("\n📊 Summary:\n")
-	fmt.Printf("  ✅ Configured: %d interfaces\n", successCount)
-	if failureCount > 0 {
-		fmt.Printf("  ❌ Failed: %d interfaces\n", failureCount)
+	// Log summary
+	logrus.WithFields(logrus.Fields{
+		"configured": successCount,
+		"failed":     failureCount,
+		"total":      len(interfaces),
+	}).Info("DNS configuration completed")
+
+	// Verify configuration was applied
+	if successCount > 0 {
+		logrus.Info("Verifying DNS configuration...")
+		verifiedInterfaces, err := getNetworkInterfaces()
+		if err != nil {
+			logrus.WithError(err).Warn("Failed to verify DNS configuration")
+		} else {
+			verifiedCount := 0
+			for _, iface := range verifiedInterfaces {
+				for _, dns := range iface.Current {
+					if dns == "127.0.0.1" {
+						verifiedCount++
+						logrus.WithFields(logrus.Fields{
+							"interface": iface.Name,
+							"dns":       iface.Current,
+						}).Debug("Verified DNS configuration")
+						break
+					}
+				}
+			}
+			logrus.WithFields(logrus.Fields{
+				"verified":   verifiedCount,
+				"configured": successCount,
+			}).Info("DNS configuration verification complete")
+		}
 	}
 
-	if successCount > 0 {
-		fmt.Println("\n✨ DNS configuration complete!")
-		fmt.Println("   All DNS queries will now be filtered by DNShield.")
-		fmt.Println("\n💡 To restore previous settings, run:")
-		fmt.Println("   sudo ./dnshield configure-dns --restore")
+	// Display summary to stdout only when not forced
+	if !opts.Force {
+		fmt.Printf("\n📊 Summary:\n")
+		fmt.Printf("  ✅ Configured: %d interfaces\n", successCount)
+		if failureCount > 0 {
+			fmt.Printf("  ❌ Failed: %d interfaces\n", failureCount)
+		}
+
+		if successCount > 0 {
+			fmt.Println("\n✨ DNS configuration complete!")
+			fmt.Println("   All DNS queries will now be filtered by DNShield.")
+			fmt.Println("\n💡 To restore previous settings, run:")
+			fmt.Println("   sudo ./dnshield configure-dns --restore")
+		}
 	}
 
 	return nil
