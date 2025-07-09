@@ -3,7 +3,8 @@
 Enterprise DNS filtering with transparent HTTPS interception for macOS.
 
 [![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8.svg)](https://golang.org)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE.md)
+[![Commercial License](https://img.shields.io/badge/Commercial%20License-Available-green.svg)](LICENSE-COMMERCIAL.md)
 [![Platform](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
 
 ## 🎯 Overview
@@ -574,7 +575,25 @@ make clean-all
 
 ## 📝 License
 
-MIT License - see [LICENSE.md](LICENSE.md) for details.
+DNS Guardian is dual-licensed:
+
+### Open Source License (AGPL-3.0)
+- ✅ Free for personal, educational, and non-profit use
+- ✅ Free for internal company use (not distributed)
+- ⚠️ Modifications must be open-sourced
+- ⚠️ Network use (SaaS) requires source disclosure
+
+See [LICENSE.md](LICENSE.md) for details.
+
+### Commercial License
+- ✅ Keep modifications private
+- ✅ Use in proprietary software
+- ✅ No AGPL obligations
+- ✅ Commercial support included
+
+See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) for details.
+
+**Need help choosing?** See our [licensing guide](LICENSE.md#quick-decision-guide).
 
 ## 🙏 Acknowledgments
 

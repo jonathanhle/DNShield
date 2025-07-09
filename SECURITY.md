@@ -216,7 +216,7 @@ timestamp=2024-01-20T10:30:45 level=AUDIT event=cert_generated domain=example.co
 We take security seriously. If you discover a vulnerability:
 
 1. **DO NOT** open a public issue
-2. Email: security@your-company.com
+2. Open a private security advisory on GitHub
 3. Include:
    - Description of the issue
    - Steps to reproduce
