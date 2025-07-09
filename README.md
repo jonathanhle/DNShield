@@ -1,4 +1,4 @@
-# DNS Guardian
+# DNShield
 
 Enterprise DNS filtering with transparent HTTPS interception for macOS.
 
@@ -9,9 +9,9 @@ Enterprise DNS filtering with transparent HTTPS interception for macOS.
 
 ## 🎯 Overview
 
-DNS Guardian is a lightweight, single-binary DNS filtering solution that provides transparent HTTPS interception without certificate warnings. Designed for enterprise deployment, it combines DNS-level blocking with dynamic certificate generation for seamless security.
+DNShield is a lightweight, single-binary DNS filtering solution that provides transparent HTTPS interception without certificate warnings. Designed for enterprise deployment, it combines DNS-level blocking with dynamic certificate generation for seamless security.
 
-### Why DNS Guardian?
+### Why DNShield?
 
 - **🔒 No Certificate Warnings**: Dynamic certificate generation for blocked HTTPS sites
 - **📦 Single Binary**: No Docker, containers, or complex dependencies  
@@ -22,42 +22,39 @@ DNS Guardian is a lightweight, single-binary DNS filtering solution that provide
 
 ## 🚀 Quick Start
 
-### Option 1: Standard Installation (v1 - File-based)
+### Fastest Setup: One Command
 ```bash
-# Build the binary
-make build
-
-# Install CA certificate (one-time setup)
-./dns-guardian install-ca
-
-# Configure DNS on all interfaces automatically
-sudo ./dns-guardian configure-dns
-
-# Run DNS Guardian
-sudo ./dns-guardian run
-
-# Or run with auto-configuration (configures DNS and monitors for changes)
-sudo ./dns-guardian run --auto-configure-dns
+# Install secure mode + run with auto DNS configuration
+make secure
 ```
 
-### Option 2: Enterprise Installation (v2 - System Keychain)
+This single command will clean, build, install with System Keychain storage, and start DNShield with automatic DNS configuration.
+
+### Option 1: Standard Installation (File-based)
 ```bash
-# Build the binary
-make build
+# Install DNShield with file-based CA storage
+make install
 
-# Install CA certificate with System keychain storage (requires sudo)
-sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+# Run DNShield (auto-detects installation mode)
+make run
 
-# Configure DNS on all interfaces automatically
-sudo ./dns-guardian configure-dns
-
-# Run DNS Guardian in v2 mode
-sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian run
-
-# Or use shortcuts for v2 mode with auto-configuration
-make install-v2
-make run-v2  # Add --auto-configure-dns flag for auto DNS configuration
+# Or run with automatic DNS configuration
+make run-auto
 ```
+
+### Option 2: Enterprise Installation (System Keychain)
+```bash
+# Install DNShield with System Keychain storage (more secure)
+make install-secure
+
+# Run DNShield (auto-detects keychain mode)
+make run
+
+# Or run with automatic DNS configuration
+make run-auto
+```
+
+**Note**: The Makefile now automatically detects which installation mode you're using. No need to specify v2 environment variables when running!
 
 Test it by visiting a blocked domain like `https://doubleclick.net`
 
@@ -96,7 +93,7 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   DNS Query     │────▶│  DNS Guardian   │────▶│  Upstream DNS   │
+│   DNS Query     │────▶│    DNShield     │────▶│  Upstream DNS   │
 │  (port 53)      │     │   (Blocking)    │     │  (1.1.1.1)      │
 └─────────────────┘     └────────┬────────┘     └─────────────────┘
                                  │
@@ -177,7 +174,7 @@ export AWS_SECRET_ACCESS_KEY="your-secret"
 export AWS_REGION="us-east-1"
 
 # Configuration override
-export DNS_GUARDIAN_CONFIG="/path/to/config.yaml"
+export DNSHIELD_CONFIG="/path/to/config.yaml"
 ```
 
 ## 🚚 Deployment
@@ -185,42 +182,42 @@ export DNS_GUARDIAN_CONFIG="/path/to/config.yaml"
 ### Manual Installation
 
 1. Download the latest release or build from source
-2. Install the CA certificate: `./dns-guardian install-ca`
-3. Configure DNS on all interfaces: `sudo ./dns-guardian configure-dns`
-4. Run as root: `sudo ./dns-guardian run`
+2. Install the CA certificate: `./dnshield install-ca`
+3. Configure DNS on all interfaces: `sudo ./dnshield configure-dns`
+4. Run as root: `sudo ./dnshield run`
 
 **DNS Configuration Options:**
 ```bash
 # Configure all interfaces at once
-sudo ./dns-guardian configure-dns
+sudo ./dnshield configure-dns
 
 # Run with automatic DNS configuration and monitoring
-sudo ./dns-guardian run --auto-configure-dns
+sudo ./dnshield run --auto-configure-dns
 
 # Restore previous DNS settings if needed
-sudo ./dns-guardian configure-dns --restore
+sudo ./dnshield configure-dns --restore
 
 # Force configuration without prompts
-sudo ./dns-guardian configure-dns --force
+sudo ./dnshield configure-dns --force
 ```
 
 ### MDM Deployment (Recommended)
 
-For enterprise deployment via Jamf, Munki, or other MDM solutions, use v2 mode with System Keychain storage:
+For enterprise deployment via Jamf, Munki, or other MDM solutions, use secure mode with System Keychain storage:
 
 ```bash
-# Create deployment package
-make package
+# Create deployment package (uses secure mode by default)
+make dist
 
-# The package will install DNS Guardian with v2 mode enabled
+# The package will install DNShield with System Keychain storage
 # This stores the CA private key in System keychain, accessible by root
 # Perfect for zero-touch deployment
 
 # Deploy via MDM (Jamf example)
-jamf policy -event install-dns-guardian
+jamf policy -event install-dnshield
 ```
 
-**Why v2 for Enterprise?**
+**Why Secure Mode for Enterprise?**
 - No user interaction required
 - Keys stored in System keychain (root accessible)
 - Works when no user is logged in
@@ -264,24 +261,19 @@ See [docs/MDM_DEPLOYMENT.md](docs/MDM_DEPLOYMENT.md) for detailed instructions.
 - Perfect for enterprise deployment via MDM
 - No user interaction required after deployment
 
-Enable v2.0 security mode:
+Enable secure mode with System Keychain:
 ```bash
 # Clean any existing installation
-sudo security delete-certificate -c "DNS Guardian Root CA" /Library/Keychains/System.keychain 2>/dev/null || true
-sudo security delete-generic-password -s "com.dnsguardian.ca" /Library/Keychains/System.keychain 2>/dev/null || true
+make uninstall
 
-# Install with v2 mode (requires sudo)
-sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+# Install with System Keychain storage
+make install-secure
 
-# Run in v2 mode (requires sudo)
-sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian run
+# Run DNShield (automatically detects secure mode)
+make run
 ```
 
-Or use the Makefile shortcuts:
-```bash
-make install-v2  # Installs CA with System keychain
-make run-v2      # Runs in v2 mode
-```
+**Note**: The simplified Makefile now auto-detects your installation mode. When you run `make run`, it checks whether you have file-based or System Keychain storage and runs with the appropriate settings automatically.
 
 ## 🏦 High-Security Deployment
 
@@ -307,7 +299,7 @@ For production deployment at banks or other high-security environments, you MUST
 ### Option 2: Remote Signing Service
 ```
 ┌─────────────────┐     ┌──────────────────┐
-│  DNS Guardian   │────▶│ Signing Service  │
+│    DNShield     │────▶│ Signing Service  │
 │  (on endpoint)  │     │ (secure server)  │
 └─────────────────┘     └──────────────────┘
 ```
@@ -349,7 +341,7 @@ For T2/Apple Silicon Macs, implement proper Secure Enclave integration:
 ### Example: Production-Ready Architecture
 
 ```yaml
-# dns-guardian-secure.yaml
+# dnshield-secure.yaml
 security:
   mode: "hsm"
   hsm:
@@ -402,7 +394,7 @@ For organizations requiring the highest level of security (financial institution
 
 ```
 ┌─────────────────┐      mTLS      ┌──────────────────┐      KMS/HSM     ┌──────────────┐
-│  DNS Guardian   │────────────────▶│ Signing Service  │─────────────────▶│  CA Key      │
+│    DNShield     │────────────────▶│ Signing Service  │─────────────────▶│  CA Key      │
 │  (on endpoint)  │◀────────────────│  (AWS Lambda)    │                  │  (secure)    │
 └─────────────────┘   Certificate   └──────────────────┘                  └──────────────┘
                                             │
@@ -435,7 +427,7 @@ This guide includes:
 - mTLS configuration for secure agent communication  
 - Terraform templates for one-click deployment
 - Cost optimization strategies
-- Integration with DNS Guardian agents
+- Integration with DNShield agents
 - Monitoring and alerting setup
 
 **Note**: While the current v2 implementation with System Keychain provides good security for most enterprise deployments, organizations handling financial transactions or sensitive data should strongly consider the remote signing architecture.
@@ -443,7 +435,7 @@ This guide includes:
 ## 📊 Monitoring & Logs
 
 ### Log Locations
-- Service logs: `Console.app` → "dns-guardian"
+- Service logs: `Console.app` → "dnshield"
 - DNS queries: Enable debug logging
 - Certificate generation: Audit log enabled by default
 
@@ -456,7 +448,7 @@ This guide includes:
 
 ### Example Log Output
 ```
-INFO[2024-01-20T10:30:45] Starting DNS Guardian v1.0.0
+INFO[2024-01-20T10:30:45] Starting DNShield v1.0.0
 INFO[2024-01-20T10:30:45] DNS server listening on port 53
 INFO[2024-01-20T10:30:45] HTTPS server listening on port 443
 INFO[2024-01-20T10:30:46] Fetched rules from S3 version=1.0 domains=5423
@@ -476,7 +468,7 @@ INFO[2024-01-20T10:31:02] Generated certificate domain=doubleclick.net duration=
 ```bash
 # Clone repository
 git clone <repository-url>
-cd dns-guardian
+cd dnshield
 
 # Install dependencies
 go mod download
@@ -488,12 +480,12 @@ make test
 make build
 
 # Run locally
-sudo ./dns-guardian run
+sudo ./dnshield run
 ```
 
 ### Project Structure
 ```
-dns-guardian/
+dnshield/
 ├── cmd/              # Command implementations
 ├── internal/         # Core packages
 │   ├── ca/          # Certificate authority
@@ -510,18 +502,18 @@ dns-guardian/
 ### Common Issues
 
 **Certificate warnings still appear**
-- Ensure CA is installed: `./dns-guardian install-ca`
-- Check Keychain Access for "DNS Guardian" certificate
+- Ensure CA is installed: `./dnshield install-ca`
+- Check Keychain Access for "DNShield" certificate
 - Clear browser cache or use incognito mode
 
 **DNS not resolving**
-- Verify service is running: `./dns-guardian status`
+- Verify service is running: `./dnshield status`
 - Check DNS settings: `networksetup -getdnsservers Wi-Fi`
-- Ensure DNS is configured: `sudo ./dns-guardian configure-dns`
+- Ensure DNS is configured: `sudo ./dnshield configure-dns`
 - Review logs for errors
 
 **DNS configuration keeps reverting**
-- Use auto-configuration mode: `sudo ./dns-guardian run --auto-configure-dns`
+- Use auto-configuration mode: `sudo ./dnshield run --auto-configure-dns`
 - This monitors and auto-corrects DNS settings every minute
 - Check for MDM profiles that might be overriding DNS
 
@@ -531,51 +523,54 @@ dns-guardian/
 
 See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more solutions.
 
-## 🗑️ Uninstalling DNS Guardian
+## 🗑️ Uninstalling DNShield
 
 ### Complete Uninstall (v1 or v2)
 
 ```bash
-# 1. Stop DNS Guardian if running
-sudo pkill -f dns-guardian
+# 1. Stop DNShield if running
+sudo pkill -f dnshield
 
 # 2. Restore DNS settings to previous values
-sudo ./dns-guardian configure-dns --restore
+sudo ./dnshield configure-dns --restore
 
 # Or reset DNS to DHCP defaults if restore fails
 sudo networksetup -setdnsservers Wi-Fi Empty
 
 # 3. Remove CA certificate from System keychain
-sudo security delete-certificate -c "DNS Guardian Root CA" /Library/Keychains/System.keychain 2>/dev/null || true
+sudo security delete-certificate -c "DNShield Root CA" /Library/Keychains/System.keychain 2>/dev/null || true
 
 # 4. Remove private key from System keychain (v2 only)
-sudo security delete-generic-password -s "com.dnsguardian.ca" -a "ca-private-key" /Library/Keychains/System.keychain 2>/dev/null || true
+sudo security delete-generic-password -s "com.dnshield.ca" -a "ca-private-key" /Library/Keychains/System.keychain 2>/dev/null || true
 
 # 5. Remove private key from user keychain (if exists)
-security delete-generic-password -s "com.dnsguardian.ca" -a "ca-private-key" 2>/dev/null || true
+security delete-generic-password -s "com.dnshield.ca" -a "ca-private-key" 2>/dev/null || true
 
-# 6. Remove DNS Guardian data directory
-rm -rf ~/.dns-guardian
+# 6. Remove DNShield data directory
+rm -rf ~/.dnshield
 
 # 7. Remove the binary
-rm -f ./dns-guardian
+rm -f ./dnshield
 
 # 8. (Optional) Remove audit logs if stored elsewhere
-sudo rm -rf /var/log/dns-guardian
+sudo rm -rf /var/log/dnshield
 ```
 
 ### Using Makefile
 
 ```bash
-# Complete cleanup (removes everything)
-make clean-all
+# Complete uninstall (removes certificates, keys, and data)
+make uninstall
+
+# Just clean build artifacts
+make clean
 ```
 
 **Note:** After uninstalling, you may need to restart your browser or clear its cache to remove any cached certificates.
 
 ## 📝 License
 
-DNS Guardian is dual-licensed:
+DNShield is dual-licensed:
 
 ### Open Source License (AGPL-3.0)
 - ✅ Free for personal, educational, and non-profit use
@@ -604,4 +599,4 @@ Built with these excellent open source projects:
 
 ---
 
-Built with ❤️ for enterprise security teams# dns_guardian
+Built with ❤️ for enterprise security teams# dnshield

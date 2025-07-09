@@ -13,7 +13,7 @@
     <!-- Allow keychain access -->
     <key>com.apple.security.keychain-access-groups</key>
     <array>
-        <string>com.dnsguardian</string>
+        <string>com.dnshield</string>
     </array>
     
     <!-- Allow loading system extensions (future use) -->

@@ -1,6 +1,6 @@
 # Remote Signing Service on AWS - Implementation Guide
 
-This guide provides a production-ready implementation of a remote certificate signing service for DNS Guardian using AWS services. This architecture ensures that CA private keys never exist on endpoint devices, providing the highest level of security for certificate generation.
+This guide provides a production-ready implementation of a remote certificate signing service for DNShield using AWS services. This architecture ensures that CA private keys never exist on endpoint devices, providing the highest level of security for certificate generation.
 
 ## Table of Contents
 
@@ -9,7 +9,7 @@ This guide provides a production-ready implementation of a remote certificate si
 3. [Security Benefits](#security-benefits)
 4. [Implementation Steps](#implementation-steps)
 5. [Cost Estimation](#cost-estimation)
-6. [Integration with DNS Guardian](#integration-with-dns-guardian)
+6. [Integration with DNShield](#integration-with-dnshield)
 7. [Monitoring and Alerts](#monitoring-and-alerts)
 8. [Disaster Recovery](#disaster-recovery)
 
@@ -49,7 +49,7 @@ This guide provides a production-ready implementation of a remote certificate si
                                  │ mTLS
                                  │
                     ┌────────────┴───────────┐
-                    │   DNS Guardian Agent   │
+                    │    DNShield Agent      │
                     │   (On User Endpoint)   │
                     └────────────────────────┘
 ```
@@ -139,11 +139,11 @@ Cert    Auth   DDoS    Rate Limit  Validate  HSM
 ```bash
 # Create KMS key for CA operations
 aws kms create-key \
-  --description "DNS Guardian CA Signing Key" \
+  --description "DNShield CA Signing Key" \
   --key-usage SIGN_VERIFY \
   --key-spec RSA_4096 \
   --multi-region \
-  --tags TagKey=Project,TagValue=DNSGuardian TagKey=Environment,TagValue=Production
+  --tags TagKey=Project,TagValue=DNShield TagKey=Environment,TagValue=Production
 ```
 
 ### Step 2: Generate CA Certificate
@@ -164,7 +164,7 @@ def generate_ca_certificate(event, context):
     subject = x509.Name([
         x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Your Company"),
-        x509.NameAttribute(NameOID.COMMON_NAME, "DNS Guardian Root CA"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "DNShield Root CA"),
     ])
     
     # Certificate valid for 10 years
@@ -201,7 +201,7 @@ def generate_ca_certificate(event, context):
     # Store in S3 for distribution
     s3 = boto3.client('s3')
     s3.put_object(
-        Bucket='dns-guardian-ca',
+        Bucket='dnshield-ca',
         Key='ca.crt',
         Body=cert.public_bytes(serialization.Encoding.PEM)
     )
@@ -222,7 +222,7 @@ from cryptography.hazmat.primitives import hashes
 # Initialize AWS clients
 kms = boto3.client('kms')
 dynamodb = boto3.resource('dynamodb')
-audit_table = dynamodb.Table('DNSGuardianAuditLog')
+audit_table = dynamodb.Table('DNShieldAuditLog')
 
 # Configuration
 KMS_KEY_ID = os.environ['KMS_KEY_ID']
@@ -336,7 +336,7 @@ def audit_log(client_id, domain, status, message):
 
 ```yaml
 # serverless.yml for API Gateway + Lambda
-service: dns-guardian-signing
+service: dnshield-signing
 
 provider:
   name: aws
@@ -366,7 +366,7 @@ resources:
     ApiGatewayRestApi:
       Type: AWS::ApiGateway::RestApi
       Properties:
-        Name: dns-guardian-signing-api
+        Name: dnshield-signing-api
         DisableExecuteApiEndpoint: true
         EndpointConfiguration:
           Types:
@@ -393,7 +393,7 @@ resources:
             - REGIONAL
         SecurityPolicy: TLS_1_2
         MutualTlsAuthentication:
-          TruststoreUri: s3://dns-guardian-ca/truststore.pem
+          TruststoreUri: s3://dnshield-ca/truststore.pem
           TruststoreVersion: '1.0'
 ```
 
@@ -509,20 +509,20 @@ terraform {
 
 # KMS key for CA operations
 resource "aws_kms_key" "ca_signing_key" {
-  description             = "DNS Guardian CA Signing Key"
+  description             = "DNShield CA Signing Key"
   deletion_window_in_days = 30
   key_usage              = "SIGN_VERIFY"
   customer_master_key_spec = "RSA_4096"
   
   tags = {
-    Project     = "DNSGuardian"
+    Project     = "DNShield"
     Environment = "Production"
   }
 }
 
 # DynamoDB table for audit logs
 resource "aws_dynamodb_table" "audit_log" {
-  name           = "DNSGuardianAuditLog"
+  name           = "DNShieldAuditLog"
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "id"
   range_key      = "timestamp"
@@ -554,7 +554,7 @@ resource "aws_dynamodb_table" "audit_log" {
   }
   
   tags = {
-    Project     = "DNSGuardian"
+    Project     = "DNShield"
     Environment = "Production"
   }
 }
@@ -562,7 +562,7 @@ resource "aws_dynamodb_table" "audit_log" {
 # Lambda function
 resource "aws_lambda_function" "signing_service" {
   filename         = "lambda.zip"
-  function_name    = "dns-guardian-signing"
+  function_name    = "dnshield-signing"
   role            = aws_iam_role.lambda_role.arn
   handler         = "handler.lambda_handler"
   runtime         = "python3.9"
@@ -583,7 +583,7 @@ resource "aws_lambda_function" "signing_service" {
 
 # API Gateway with mTLS
 resource "aws_api_gateway_rest_api" "signing_api" {
-  name        = "dns-guardian-signing-api"
+  name        = "dnshield-signing-api"
   description = "Certificate signing API with mTLS"
   
   endpoint_configuration {
@@ -593,7 +593,7 @@ resource "aws_api_gateway_rest_api" "signing_api" {
 
 # WAF for additional protection
 resource "aws_wafv2_web_acl" "signing_waf" {
-  name  = "dns-guardian-signing-waf"
+  name  = "dnshield-signing-waf"
   scope = "REGIONAL"
   
   default_action {
@@ -625,7 +625,7 @@ resource "aws_wafv2_web_acl" "signing_waf" {
 
 # CloudWatch alarms
 resource "aws_cloudwatch_metric_alarm" "high_error_rate" {
-  alarm_name          = "dns-guardian-high-error-rate"
+  alarm_name          = "dnshield-high-error-rate"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
   metric_name        = "Errors"
@@ -668,7 +668,7 @@ For high-volume deployments (10M+ requests/month), consider:
 - API Gateway caching
 - CloudFront distribution
 
-## Integration with DNS Guardian
+## Integration with DNShield
 
 ### 1. Update Configuration
 
@@ -677,10 +677,10 @@ For high-volume deployments (10M+ requests/month), consider:
 signing:
   mode: "remote"  # local or remote
   remote:
-    endpoint: "https://signing.dnsguardian.internal"
-    cert_file: "/etc/dns-guardian/client.crt"
-    key_file: "/etc/dns-guardian/client.key"
-    ca_file: "/etc/dns-guardian/ca.crt"
+    endpoint: "https://signing.dnshield.internal"
+    cert_file: "/etc/dnshield/client.crt"
+    key_file: "/etc/dnshield/client.key"
+    ca_file: "/etc/dnshield/ca.crt"
     timeout: "10s"
     retry_count: 3
 ```
@@ -753,7 +753,7 @@ func (p *Proxy) getCertificate(domain string) (*tls.Certificate, error) {
     {
       "type": "log",
       "properties": {
-        "query": "SOURCE '/aws/lambda/dns-guardian-signing' | fields @timestamp, client_id, domain, status | filter status = 'DENIED'",
+        "query": "SOURCE '/aws/lambda/dnshield-signing' | fields @timestamp, client_id, domain, status | filter status = 'DENIED'",
         "region": "us-east-1",
         "title": "Denied Requests"
       }
@@ -792,7 +792,7 @@ func (p *Proxy) getCertificate(domain string) (*tls.Certificate, error) {
 ```bash
 # Chaos engineering test
 aws lambda put-function-concurrency \
-  --function-name dns-guardian-signing \
+  --function-name dnshield-signing \
   --reserved-concurrent-executions 0
 
 # Verify clients handle gracefully
@@ -833,7 +833,7 @@ aws lambda put-function-concurrency \
 
 ## Conclusion
 
-This remote signing architecture provides the highest level of security for DNS Guardian deployments. By keeping the CA private key in AWS KMS and requiring mTLS authentication, you ensure that even a fully compromised endpoint cannot steal the CA key or generate unauthorized certificates.
+This remote signing architecture provides the highest level of security for DNShield deployments. By keeping the CA private key in AWS KMS and requiring mTLS authentication, you ensure that even a fully compromised endpoint cannot steal the CA key or generate unauthorized certificates.
 
 For production deployments at financial institutions or other high-security environments, this architecture meets all compliance requirements while remaining cost-effective and scalable.
 

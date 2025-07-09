@@ -1,14 +1,14 @@
-# DNS Guardian - Dual Licensed
+# DNShield - Dual Licensed
 
-DNS Guardian is dual-licensed:
+DNShield is dual-licensed:
 
 1. **GNU Affero General Public License v3.0 (AGPL-3.0)** - for open source use
 2. **Commercial License** - for proprietary/commercial use
 
 ## For Open Source Use (AGPL-3.0)
 
-DNS Guardian
-Copyright (C) 2024 DNS Guardian Contributors
+DNShield
+Copyright (C) 2024 DNShield Contributors
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -34,7 +34,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 ## For Commercial Use
 
 If you want to:
-- Use DNS Guardian in proprietary software
+- Use DNShield in proprietary software
 - Keep your modifications private
 - Avoid AGPL-3.0 obligations
 - Get commercial support
@@ -45,7 +45,7 @@ See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) for details.
 
 ## Why Dual Licensing?
 
-This model allows DNS Guardian to be:
+This model allows DNShield to be:
 - Freely available for open source projects
 - Sustainable through commercial licensing
 - Protected from proprietary exploitation

@@ -1,15 +1,15 @@
-# Contributing to DNS Guardian
+# Contributing to DNShield
 
-First off, thank you for considering contributing to DNS Guardian! 🎉
+First off, thank you for considering contributing to DNShield! 🎉
 
 ## 📋 Important: Contributor License Agreement (CLA)
 
-**Before we can accept your contributions**, you must agree to our Contributor License Agreement (CLA). This is necessary because DNS Guardian is dual-licensed (AGPL-3.0 + Commercial).
+**Before we can accept your contributions**, you must agree to our Contributor License Agreement (CLA). This is necessary because DNShield is dual-licensed (AGPL-3.0 + Commercial).
 
 ### Why a CLA?
 
 The CLA allows us to:
-- Offer DNS Guardian under a commercial license to sustain development
+- Offer DNShield under a commercial license to sustain development
 - Protect the project legally
 - Ensure all contributions can be included in both open source and commercial versions
 
@@ -34,8 +34,8 @@ I have read the CLA Document and I hereby sign the CLA
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/yourusername/dns-guardian.git
-   cd dns-guardian
+   git clone https://github.com/yourusername/dnshield.git
+   cd dnshield
    ```
 
 3. Install dependencies:

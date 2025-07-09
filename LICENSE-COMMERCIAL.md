@@ -1,18 +1,18 @@
-# Commercial License for DNS Guardian
+# Commercial License for DNShield
 
-This Commercial License Agreement ("Agreement") is entered into by and between the DNS Guardian Project ("Licensor") and the entity or individual entering into this Agreement ("Licensee").
+This Commercial License Agreement ("Agreement") is entered into by and between the DNShield Project ("Licensor") and the entity or individual entering into this Agreement ("Licensee").
 
 ## 1. Grant of License
 
-Subject to the terms and conditions of this Agreement and payment of the applicable license fees, Licensor grants Licensee a non-exclusive, non-transferable license to use DNS Guardian in commercial applications without the obligations of the AGPL-3.0 license.
+Subject to the terms and conditions of this Agreement and payment of the applicable license fees, Licensor grants Licensee a non-exclusive, non-transferable license to use DNShield in commercial applications without the obligations of the AGPL-3.0 license.
 
 ## 2. Permitted Use
 
 Under this Commercial License, Licensee may:
-- Use DNS Guardian in proprietary/closed-source applications
-- Modify DNS Guardian without releasing source code
-- Distribute DNS Guardian as part of commercial products
-- Use DNS Guardian in SaaS/cloud offerings
+- Use DNShield in proprietary/closed-source applications
+- Modify DNShield without releasing source code
+- Distribute DNShield as part of commercial products
+- Use DNShield in SaaS/cloud offerings
 - Keep modifications and integrations confidential
 
 ## 3. License Fees
@@ -43,7 +43,7 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMA
 
 ## 7. Term and Termination
 
-This license is valid for one year from the date of purchase and must be renewed annually. Upon termination, Licensee must cease all use of DNS Guardian under this commercial license.
+This license is valid for one year from the date of purchase and must be renewed annually. Upon termination, Licensee must cease all use of DNShield under this commercial license.
 
 ## 8. Contact Information
 

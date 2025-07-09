@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DNS Guardian is an enterprise DNS filtering solution with transparent HTTPS interception for macOS. It's a single-binary Go application that provides DNS-level ad blocking with dynamic certificate generation, eliminating browser certificate warnings for blocked sites.
+DNShield is an enterprise DNS filtering solution with transparent HTTPS interception for macOS. It's a single-binary Go application that provides DNS-level ad blocking with dynamic certificate generation, eliminating browser certificate warnings for blocked sites.
 
 ## Key Commands
 
@@ -33,23 +33,30 @@ make build-universal
 
 # Build with code signing for production
 make build-signed  # Requires Apple Developer ID
+
+# Create distribution package with universal binary
+make dist
+
+# Demo setup (install + instructions)
+make demo
 ```
 
 ### Installation Modes
 ```bash
-# v1 Mode - File-based CA storage (simpler)
-make install-v1
-make run-v1
+# Standard Mode - File-based CA storage (simpler)
+make install
 
-# v2 Mode - System Keychain CA storage (enterprise-ready)
-make install-v2  
-make run-v2
+# Secure Mode - System Keychain CA storage (enterprise-ready)
+make install-secure
+
+# Complete secure setup and run with auto DNS in one command
+make secure
 
 # Check current mode
 make show-mode
 
 # Complete cleanup
-make clean-all
+make uninstall
 ```
 
 ### DNS Configuration
@@ -61,8 +68,8 @@ make configure-dns
 make restore-dns
 
 # Or use the command directly
-sudo ./dns-guardian configure-dns
-sudo ./dns-guardian configure-dns --restore
+sudo ./dnshield configure-dns
+sudo ./dnshield configure-dns --restore
 ```
 
 ### Testing Blocked Domains
@@ -101,8 +108,8 @@ single-binary-version/
 - **Certificate Cache**: In-memory for performance
 
 ### Security Modes
-1. **v1 (File-based)**: CA private key stored in `~/.dns-guardian/ca.key`
-2. **v2 (Keychain-based)**: CA private key in System Keychain (enterprise deployment)
+1. **Standard (File-based)**: CA private key stored in `~/.dnshield/ca.key`
+2. **Secure (Keychain-based)**: CA private key in System Keychain (enterprise deployment)
 
 ## Working with the Codebase
 
@@ -129,10 +136,10 @@ s3:  # Optional S3 rule management
 ### Common Development Tasks
 ```bash
 # Check DNS server logs
-sudo ./dns-guardian run  # Logs to stdout
+sudo ./dnshield run  # Logs to stdout
 
 # Force rule update from S3
-sudo ./dns-guardian update-rules
+sudo ./dnshield update-rules
 
 # Check certificate generation
 # Certificates are generated on-demand when visiting blocked HTTPS sites

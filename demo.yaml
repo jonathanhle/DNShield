@@ -1,4 +1,4 @@
-# DNS Guardian Demo Rules
+# DNShield Demo Rules
 # Upload this file to: s3://your-dns-rules-bucket/blocklists/demo.yaml
 
 version: "1.0"

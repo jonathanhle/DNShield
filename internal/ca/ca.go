@@ -1,4 +1,4 @@
-// Package ca handles Certificate Authority operations for DNS Guardian.
+// Package ca handles Certificate Authority operations for DNShield.
 // It manages CA generation, storage, and certificate signing to enable
 // HTTPS interception without browser warnings.
 //
@@ -20,12 +20,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
-	
-	"dns-guardian/internal/security"
+
+	"dnshield/internal/security"
 )
 
 const (
-	caDir      = ".dns-guardian"
+	caDir      = ".dnshield"
 	caCertFile = "ca.crt"
 	caKeyFile  = "ca.key"
 )
@@ -47,7 +47,7 @@ func GetCAPath() string {
 // LoadOrCreateCA loads an existing CA or creates a new one if none exists (legacy version).
 // This is the primary entry point for CA initialization.
 //
-// The CA is stored in ~/.dns-guardian/ with the following files:
+// The CA is stored in ~/.dnshield/ with the following files:
 //   - ca.crt: The CA certificate (public)
 //   - ca.key: The CA private key (must be protected)
 //
@@ -133,7 +133,7 @@ func createCA(caPath string) (*CA, error) {
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			Organization:  []string{"DNS Guardian"},
+			Organization:  []string{"DNShield"},
 			Country:       []string{"US"},
 			Province:      []string{""},
 			Locality:      []string{""},
@@ -200,16 +200,16 @@ func createCA(caPath string) (*CA, error) {
 // InstallCA installs the CA certificate in the system keychain
 func (ca *CA) InstallCA() error {
 	certPath := filepath.Join(GetCAPath(), caCertFile)
-	
+
 	// On macOS, use security command with Touch ID
 	// The -p option allows Touch ID authentication
 	cmd := exec.Command("sudo", "-p", "Touch ID or enter password: ", "security", "add-trusted-cert", "-d", "-r", "trustRoot", "-k", "/Library/Keychains/System.keychain", certPath)
-	
+
 	// Set up for interactive authentication
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to install CA: %v", err)
@@ -247,11 +247,11 @@ func (ca *CA) GenerateCert(domain string) (*x509.Certificate, *rsa.PrivateKey, e
 		Subject: pkix.Name{
 			CommonName: domain,
 		},
-		NotBefore:    time.Now().Add(-security.CertificateNotBeforeOffset),
-		NotAfter:     time.Now().Add(security.GetDomainCertificateValidity()), // 5 minutes
-		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     getDNSNames(domain),
+		NotBefore:   time.Now().Add(-security.CertificateNotBeforeOffset),
+		NotAfter:    time.Now().Add(security.GetDomainCertificateValidity()), // 5 minutes
+		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:    getDNSNames(domain),
 	}
 
 	// Generate certificate

@@ -1,4 +1,4 @@
-// Package audit provides security audit logging for DNS Guardian.
+// Package audit provides security audit logging for DNShield.
 // It tracks sensitive operations like certificate generation, CA access,
 // and configuration changes for compliance and security monitoring.
 package audit
@@ -19,24 +19,24 @@ type EventType string
 
 const (
 	// Certificate operations
-	EventCertGenerated    EventType = "CERT_GENERATED"
-	EventCertCacheHit     EventType = "CERT_CACHE_HIT"
-	EventCAAccess         EventType = "CA_ACCESS"
-	EventCAInstalled      EventType = "CA_INSTALLED"
-	EventCAUninstalled    EventType = "CA_UNINSTALLED"
-	
+	EventCertGenerated EventType = "CERT_GENERATED"
+	EventCertCacheHit  EventType = "CERT_CACHE_HIT"
+	EventCAAccess      EventType = "CA_ACCESS"
+	EventCAInstalled   EventType = "CA_INSTALLED"
+	EventCAUninstalled EventType = "CA_UNINSTALLED"
+
 	// Security operations
-	EventKeychainAccess   EventType = "KEYCHAIN_ACCESS"
-	EventKeychainStore    EventType = "KEYCHAIN_STORE"
+	EventKeychainAccess    EventType = "KEYCHAIN_ACCESS"
+	EventKeychainStore     EventType = "KEYCHAIN_STORE"
 	EventSecurityViolation EventType = "SECURITY_VIOLATION"
-	
+
 	// Configuration changes
-	EventConfigChange     EventType = "CONFIG_CHANGE"
-	EventRulesUpdate      EventType = "RULES_UPDATE"
-	
+	EventConfigChange EventType = "CONFIG_CHANGE"
+	EventRulesUpdate  EventType = "RULES_UPDATE"
+
 	// Service lifecycle
-	EventServiceStart     EventType = "SERVICE_START"
-	EventServiceStop      EventType = "SERVICE_STOP"
+	EventServiceStart EventType = "SERVICE_START"
+	EventServiceStop  EventType = "SERVICE_STOP"
 )
 
 // Event represents an audit log entry
@@ -53,15 +53,15 @@ type Event struct {
 
 // Logger handles audit logging
 type Logger struct {
-	file       *os.File
-	encoder    *json.Encoder
-	mu         sync.Mutex
-	logPath    string
+	file    *os.File
+	encoder *json.Encoder
+	mu      sync.Mutex
+	logPath string
 }
 
 var (
 	defaultLogger *Logger
-	once         sync.Once
+	once          sync.Once
 )
 
 // Initialize sets up the audit logger
@@ -70,33 +70,33 @@ func Initialize() error {
 	once.Do(func() {
 		// Create audit directory
 		home, _ := os.UserHomeDir()
-		auditDir := filepath.Join(home, ".dns-guardian", "audit")
+		auditDir := filepath.Join(home, ".dnshield", "audit")
 		if mkErr := os.MkdirAll(auditDir, 0700); mkErr != nil {
 			err = mkErr
 			return
 		}
-		
+
 		// Create log file with timestamp
 		logFile := fmt.Sprintf("audit-%s.log", time.Now().Format("2006-01-02"))
 		logPath := filepath.Join(auditDir, logFile)
-		
+
 		// Open file
 		file, openErr := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 		if openErr != nil {
 			err = openErr
 			return
 		}
-		
+
 		defaultLogger = &Logger{
 			file:    file,
 			encoder: json.NewEncoder(file),
 			logPath: logPath,
 		}
-		
+
 		// Log initialization
 		Log(EventServiceStart, "info", "Audit logging initialized", nil)
 	})
-	
+
 	return err
 }
 
@@ -110,7 +110,7 @@ func Log(eventType EventType, severity string, message string, details map[strin
 		}).Info(message)
 		return
 	}
-	
+
 	event := Event{
 		Timestamp:   time.Now(),
 		Type:        eventType,
@@ -120,20 +120,20 @@ func Log(eventType EventType, severity string, message string, details map[strin
 		ProcessID:   os.Getpid(),
 		ProcessName: filepath.Base(os.Args[0]),
 	}
-	
+
 	// Add user if available
 	if user := os.Getenv("USER"); user != "" {
 		event.User = user
 	}
-	
+
 	defaultLogger.mu.Lock()
 	defer defaultLogger.mu.Unlock()
-	
+
 	// Write to audit log
 	if err := defaultLogger.encoder.Encode(event); err != nil {
 		logrus.WithError(err).Error("Failed to write audit log")
 	}
-	
+
 	// Also log to standard logger for real-time monitoring
 	logrus.WithFields(logrus.Fields{
 		"audit_type": eventType,
@@ -148,7 +148,7 @@ func LogCertGeneration(domain string, duration time.Duration, cached bool) {
 	if cached {
 		eventType = EventCertCacheHit
 	}
-	
+
 	Log(eventType, "info", fmt.Sprintf("Certificate for %s", domain), map[string]interface{}{
 		"domain":   domain,
 		"duration": duration.String(),
@@ -162,7 +162,7 @@ func LogCAAccess(operation string, success bool) {
 	if !success {
 		severity = "warning"
 	}
-	
+
 	Log(EventCAAccess, severity, fmt.Sprintf("CA %s", operation), map[string]interface{}{
 		"operation": operation,
 		"success":   success,
