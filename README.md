@@ -29,11 +29,14 @@ make build
 # Install CA certificate (one-time setup)
 ./dns-guardian install-ca
 
-# Configure DNS to 127.0.0.1
-sudo networksetup -setdnsservers Wi-Fi 127.0.0.1
+# Configure DNS on all interfaces automatically
+sudo ./dns-guardian configure-dns
 
 # Run DNS Guardian
 sudo ./dns-guardian run
+
+# Or run with auto-configuration (configures DNS and monitors for changes)
+sudo ./dns-guardian run --auto-configure-dns
 ```
 
 ### Option 2: Enterprise Installation (v2 - System Keychain)
@@ -44,11 +47,15 @@ make build
 # Install CA certificate with System keychain storage (requires sudo)
 sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
 
-# Configure DNS to 127.0.0.1
-sudo networksetup -setdnsservers Wi-Fi 127.0.0.1
+# Configure DNS on all interfaces automatically
+sudo ./dns-guardian configure-dns
 
 # Run DNS Guardian in v2 mode
 sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian run
+
+# Or use shortcuts for v2 mode with auto-configuration
+make install-v2
+make run-v2  # Add --auto-configure-dns flag for auto DNS configuration
 ```
 
 Test it by visiting a blocked domain like `https://doubleclick.net`
@@ -75,6 +82,14 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 - **MDM Support**: Zero-touch deployment via Jamf/Kandji
 - **Multi-Environment**: Dev/staging/prod rule sets
 - **Statistics**: Query metrics and reporting
+
+### DNS Configuration Management
+- **Automatic Configuration**: Set DNS to 127.0.0.1 on all network interfaces
+- **Multi-Interface Support**: Works with Wi-Fi, Ethernet, Thunderbolt, USB, VPN
+- **Configuration Backup**: Saves current DNS settings before changes
+- **Easy Restoration**: Restore previous DNS settings with one command
+- **Drift Protection**: Auto-monitors and corrects DNS configuration changes
+- **Zero Manual Setup**: Run with `--auto-configure-dns` for fully automated setup
 
 ## 🏗️ Architecture
 
@@ -170,8 +185,23 @@ export DNS_GUARDIAN_CONFIG="/path/to/config.yaml"
 
 1. Download the latest release or build from source
 2. Install the CA certificate: `./dns-guardian install-ca`
-3. Configure system DNS to `127.0.0.1`
+3. Configure DNS on all interfaces: `sudo ./dns-guardian configure-dns`
 4. Run as root: `sudo ./dns-guardian run`
+
+**DNS Configuration Options:**
+```bash
+# Configure all interfaces at once
+sudo ./dns-guardian configure-dns
+
+# Run with automatic DNS configuration and monitoring
+sudo ./dns-guardian run --auto-configure-dns
+
+# Restore previous DNS settings if needed
+sudo ./dns-guardian configure-dns --restore
+
+# Force configuration without prompts
+sudo ./dns-guardian configure-dns --force
+```
 
 ### MDM Deployment (Recommended)
 
@@ -487,7 +517,13 @@ dns-guardian/
 **DNS not resolving**
 - Verify service is running: `./dns-guardian status`
 - Check DNS settings: `networksetup -getdnsservers Wi-Fi`
+- Ensure DNS is configured: `sudo ./dns-guardian configure-dns`
 - Review logs for errors
+
+**DNS configuration keeps reverting**
+- Use auto-configuration mode: `sudo ./dns-guardian run --auto-configure-dns`
+- This monitors and auto-corrects DNS settings every minute
+- Check for MDM profiles that might be overriding DNS
 
 **Can't bind to port 53**
 - Ensure running with sudo
@@ -503,7 +539,10 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more solutions.
 # 1. Stop DNS Guardian if running
 sudo pkill -f dns-guardian
 
-# 2. Reset DNS settings to default
+# 2. Restore DNS settings to previous values
+sudo ./dns-guardian configure-dns --restore
+
+# Or reset DNS to DHCP defaults if restore fails
 sudo networksetup -setdnsservers Wi-Fi Empty
 
 # 3. Remove CA certificate from System keychain

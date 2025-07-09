@@ -26,7 +26,8 @@ import (
 
 // RunOptions contains options for the run command
 type RunOptions struct {
-	ConfigFile string
+	ConfigFile    string
+	AutoConfigure bool
 }
 
 // NewRunCmd creates the run command
@@ -43,6 +44,7 @@ func NewRunCmd() *cobra.Command {
 	}
 	
 	cmd.Flags().StringVarP(&opts.ConfigFile, "config", "c", "", "config file path")
+	cmd.Flags().BoolVar(&opts.AutoConfigure, "auto-configure-dns", false, "automatically configure DNS on all interfaces to 127.0.0.1")
 	
 	return cmd
 }
@@ -51,6 +53,18 @@ func runAgent(opts *RunOptions) error {
 	// Check if running as root
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("dns-guardian must be run as root to bind to ports 53, 80, and 443")
+	}
+	
+	// Auto-configure DNS if requested
+	if opts.AutoConfigure {
+		logrus.Info("Auto-configuring DNS on all interfaces...")
+		configOpts := &ConfigureDNSOptions{Force: true}
+		if err := configureDNS(configOpts); err != nil {
+			logrus.WithError(err).Error("Failed to auto-configure DNS")
+			// Continue anyway - user can manually configure
+		} else {
+			logrus.Info("DNS auto-configuration complete")
+		}
 	}
 	
 	// Load configuration
@@ -127,6 +141,11 @@ func runAgent(opts *RunOptions) error {
 	logrus.Info("HTTP server listening on port 80")
 	logrus.Info("HTTPS server listening on port 443")
 	logrus.WithField("domains", blocker.GetBlockedCount()).Info("Blocked domains loaded")
+	
+	// Start DNS configuration monitor if auto-configure is enabled
+	if opts.AutoConfigure {
+		go monitorDNSConfiguration()
+	}
 	
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
@@ -273,4 +292,25 @@ func getSecurityMode() string {
 		return "v2.0 (Keychain)"
 	}
 	return "v1.0 (File-based)"
+}
+
+// monitorDNSConfiguration periodically checks and fixes DNS configuration
+func monitorDNSConfiguration() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	
+	for range ticker.C {
+		if err := VerifyDNSConfiguration(); err != nil {
+			logrus.WithError(err).Warn("DNS configuration drift detected, reconfiguring...")
+			
+			// Reconfigure DNS
+			configOpts := &ConfigureDNSOptions{Force: true}
+			if err := configureDNS(configOpts); err != nil {
+				logrus.WithError(err).Error("Failed to reconfigure DNS")
+			} else {
+				logrus.Info("DNS configuration restored")
+				audit.Log(audit.EventConfigChange, "warning", "DNS configuration drift corrected", nil)
+			}
+		}
+	}
 }

@@ -33,6 +33,7 @@ block pages without certificate warnings.`,
 		newStatusCmd(),
 		newUpdateRulesCmd(),
 		newVersionCmd(),
+		newConfigureDNSCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -88,4 +89,8 @@ func newVersionCmd() *cobra.Command {
 			fmt.Printf("DNS Guardian v%s\n", version)
 		},
 	}
+}
+
+func newConfigureDNSCmd() *cobra.Command {
+	return cmd.NewConfigureDNSCmd()
 }

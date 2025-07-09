@@ -15,6 +15,11 @@ run: build
 	@echo "Starting DNS Guardian..."
 	sudo ./$(BINARY_NAME) run
 
+# Run with auto DNS configuration
+run-auto: build
+	@echo "Starting DNS Guardian with auto DNS configuration..."
+	sudo ./$(BINARY_NAME) run --auto-configure-dns
+
 # Install CA certificate
 install-ca: build
 	@echo "Installing CA certificate..."
@@ -76,6 +81,16 @@ show-config:
 # Check agent status
 status: build
 	./$(BINARY_NAME) status
+
+# Configure DNS on all interfaces
+configure-dns: build
+	@echo "Configuring DNS on all network interfaces..."
+	sudo ./$(BINARY_NAME) configure-dns
+
+# Restore DNS configuration
+restore-dns: build
+	@echo "Restoring DNS configuration..."
+	sudo ./$(BINARY_NAME) configure-dns --restore
 
 # Force update rules from S3
 update-rules: build

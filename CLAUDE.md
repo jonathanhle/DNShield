@@ -16,6 +16,9 @@ make build
 # Run with sudo (required for port 53/443)
 make run
 
+# Run with automatic DNS configuration on all interfaces
+make run-auto
+
 # Format code
 make fmt
 
@@ -49,12 +52,22 @@ make show-mode
 make clean-all
 ```
 
+### DNS Configuration
+```bash
+# Configure DNS on all interfaces to 127.0.0.1
+make configure-dns
+
+# Restore previous DNS settings
+make restore-dns
+
+# Or use the command directly
+sudo ./dns-guardian configure-dns
+sudo ./dns-guardian configure-dns --restore
+```
+
 ### Testing Blocked Domains
 ```bash
-# After starting DNS Guardian, configure DNS
-sudo networksetup -setdnsservers Wi-Fi 127.0.0.1
-
-# Test blocking
+# Test blocking (after DNS is configured)
 curl -I https://doubleclick.net  # Should show block page
 ```
 
