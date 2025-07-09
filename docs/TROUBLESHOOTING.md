@@ -1,12 +1,12 @@
 # Troubleshooting Guide
 
-This guide covers common issues and their solutions when running DNS Guardian.
+This guide covers common issues and their solutions when running DNShield.
 
 ## Quick Diagnostics
 
 Run the status command to check system health:
 ```bash
-./dns-guardian status
+./dnshield status
 ```
 
 ## Common Issues
@@ -22,13 +22,13 @@ Run the status command to check system health:
 1. **Verify CA is installed:**
    ```bash
    # Check if CA is in keychain
-   security find-certificate -c "DNS Guardian Root CA" /Library/Keychains/System.keychain
+   security find-certificate -c "DNShield Root CA" /Library/Keychains/System.keychain
    
    # If not found, reinstall
-   ./dns-guardian install-ca
+   ./dnshield install-ca
    
    # For v2 mode (System Keychain)
-   sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+   sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true ./dnshield install-ca
    ```
 
 2. **Clear browser cache:**
@@ -39,19 +39,19 @@ Run the status command to check system health:
 3. **Check certificate generation:**
    ```bash
    # Enable debug logging
-   sudo ./dns-guardian run --config config.yaml
+   sudo ./dnshield run --config config.yaml
    
    # Look for certificate generation logs
    # For v1 mode
-   tail -f /var/log/dns-guardian.log | grep "Generated certificate"
+   tail -f /var/log/dnshield.log | grep "Generated certificate"
    
    # For v2 mode (audit logs)
-   tail -f ~/.dns-guardian/audit/*.log | grep "CERT_GENERATED"
+   tail -f ~/.dnshield/audit/*.log | grep "CERT_GENERATED"
    ```
 
 4. **Trust the CA manually:**
    - Open Keychain Access
-   - Find "DNS Guardian Root CA" certificate
+   - Find "DNShield Root CA" certificate
    - Double-click and set to "Always Trust"
 
 ### 2. DNS Not Resolving
@@ -86,11 +86,17 @@ Run the status command to check system health:
    networksetup -getdnsservers Wi-Fi
    
    # Should show: 127.0.0.1
+   
+   # If not, configure DNS automatically
+   sudo ./dnshield configure-dns
+   
+   # Or run with auto-configuration
+   sudo ./dnshield run --auto-configure-dns
    ```
 
 4. **Review logs for errors:**
    ```bash
-   sudo ./dns-guardian run --config config.yaml
+   sudo ./dnshield run --config config.yaml
    # Look for connection errors or timeouts
    ```
 
@@ -104,7 +110,7 @@ Run the status command to check system health:
 
 1. **Run with sudo:**
    ```bash
-   sudo ./dns-guardian run
+   sudo ./dnshield run
    ```
 
 2. **Check for conflicting services:**
@@ -156,7 +162,7 @@ Run the status command to check system health:
 
 3. **Force rule update:**
    ```bash
-   ./dns-guardian update-rules
+   ./dnshield update-rules
    ```
 
 4. **Check S3 permissions:**
@@ -192,7 +198,57 @@ Run the status command to check system health:
    - Look for certificate errors
    - Check certificate cache is working
 
-### 6. High CPU/Memory Usage
+### 6. DNS Configuration Keeps Reverting
+
+**Symptoms:**
+- DNS settings change back to previous values
+- Network reconnects reset DNS
+- VPN connections override DNS
+
+**Solutions:**
+
+1. **Use auto-configuration mode:**
+   ```bash
+   # Run with automatic DNS monitoring
+   sudo ./dnshield run --auto-configure-dns
+   
+   # This checks DNS every minute and auto-corrects changes
+   ```
+
+2. **Check for conflicting software:**
+   ```bash
+   # Look for VPN clients, network managers
+   ps aux | grep -i "vpn\|dns"
+   ```
+
+3. **Check MDM profiles:**
+   ```bash
+   # List configuration profiles
+   profiles show
+   
+   # Look for DNS-related settings
+   ```
+
+4. **Verify all interfaces are configured:**
+   ```bash
+   # Check all interfaces
+   networksetup -listallnetworkservices
+   
+   # Configure each manually if needed
+   sudo networksetup -setdnsservers "Wi-Fi" 127.0.0.1
+   sudo networksetup -setdnsservers "Ethernet" 127.0.0.1
+   ```
+
+5. **Monitor DNS changes:**
+   ```bash
+   # Watch for DNS changes in real-time
+   while true; do
+     echo "$(date): $(networksetup -getdnsservers Wi-Fi)"
+     sleep 10
+   done
+   ```
+
+### 7. High CPU/Memory Usage
 
 **Symptoms:**
 - dns-guardian using excessive resources
@@ -210,7 +266,7 @@ Run the status command to check system health:
 2. **Review blocklist size:**
    ```bash
    # Check number of blocked domains
-   ./dns-guardian status
+   ./dnshield status
    ```
 
 3. **Enable rate limiting (future feature)**
@@ -231,7 +287,7 @@ agent:
 
 Or via command line:
 ```bash
-sudo ./dns-guardian run --log-level debug
+sudo ./dnshield run --log-level debug
 ```
 
 ## Log Analysis
@@ -240,16 +296,16 @@ sudo ./dns-guardian run --log-level debug
 
 ```bash
 # Certificate generation issues
-grep "Failed to generate certificate" /var/log/dns-guardian.log
+grep "Failed to generate certificate" /var/log/dnshield.log
 
 # DNS resolution failures  
-grep "Failed to query upstream" /var/log/dns-guardian.log
+grep "Failed to query upstream" /var/log/dnshield.log
 
 # S3 sync problems
-grep "Failed to fetch rules" /var/log/dns-guardian.log
+grep "Failed to fetch rules" /var/log/dnshield.log
 
 # Memory/performance issues
-grep "Cache full" /var/log/dns-guardian.log
+grep "Cache full" /var/log/dnshield.log
 ```
 
 ## v2.0 Mode Specific Issues
@@ -264,7 +320,7 @@ grep "Cache full" /var/log/dns-guardian.log
 
 1. **Ensure running with sudo:**
    ```bash
-   sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+   sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true ./dnshield install-ca
    ```
 
 2. **Check System keychain permissions:**
@@ -293,17 +349,17 @@ grep "Cache full" /var/log/dns-guardian.log
 
 2. **Check audit logs:**
    ```bash
-   tail -f ~/.dns-guardian/audit/audit-*.log
+   tail -f ~/.dnshield/audit/audit-*.log
    ```
 
 3. **Reinstall CA in v2 mode:**
    ```bash
    # Clean up first
    sudo security delete-generic-password -s "com.dnsguardian.ca" /Library/Keychains/System.keychain 2>/dev/null
-   sudo security delete-certificate -c "DNS Guardian Root CA" /Library/Keychains/System.keychain 2>/dev/null
+   sudo security delete-certificate -c "DNShield Root CA" /Library/Keychains/System.keychain 2>/dev/null
    
    # Reinstall
-   sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+   sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true ./dnshield install-ca
    ```
 
 ## Getting Help
@@ -312,14 +368,14 @@ If problems persist:
 
 1. **Collect diagnostic information:**
    ```bash
-   ./dns-guardian status > diagnostic.txt
-   ./dns-guardian version >> diagnostic.txt
+   ./dnshield status > diagnostic.txt
+   ./dnshield version >> diagnostic.txt
    sw_vers >> diagnostic.txt  # macOS version
    ```
 
 2. **Enable debug logging and capture:**
    ```bash
-   sudo ./dns-guardian run --log-level debug 2>&1 | tee debug.log
+   sudo ./dnshield run --log-level debug 2>&1 | tee debug.log
    ```
 
 3. **Check known issues:**

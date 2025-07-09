@@ -1,21 +1,73 @@
-MIT License
+# DNShield - Dual Licensed
 
-Copyright (c) 2024 DNS Guardian Contributors
+DNShield is dual-licensed:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. **GNU Affero General Public License v3.0 (AGPL-3.0)** - for open source use
+2. **Commercial License** - for proprietary/commercial use
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+## For Open Source Use (AGPL-3.0)
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+DNShield
+Copyright (C) 2024 DNShield Contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+### What AGPL-3.0 means:
+
+- ✅ **Free to use** for personal, educational, and non-profit purposes
+- ✅ **Free to modify** and distribute
+- ⚠️ **Must share source code** of modifications
+- ⚠️ **Must share source code** if used in a network service (SaaS)
+- ⚠️ **All derivative works** must also be AGPL-3.0
+
+## For Commercial Use
+
+If you want to:
+- Use DNShield in proprietary software
+- Keep your modifications private
+- Avoid AGPL-3.0 obligations
+- Get commercial support
+
+**You need a commercial license.**
+
+See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) for details.
+
+## Why Dual Licensing?
+
+This model allows DNShield to be:
+- Freely available for open source projects
+- Sustainable through commercial licensing
+- Protected from proprietary exploitation
+
+## Quick Decision Guide
+
+| Your Use Case | Which License? |
+|--------------|----------------|
+| Personal DNS blocking | AGPL-3.0 (free) |
+| Open source project | AGPL-3.0 (free) |
+| Educational/research | AGPL-3.0 (free) |
+| Internal company use (not distributed) | AGPL-3.0 (free) |
+| Proprietary software | Commercial (paid) |
+| SaaS/cloud service | Commercial (paid) |
+| Modifying without sharing source | Commercial (paid) |
+
+## Questions?
+
+- For licensing questions: [Open an issue](https://github.com/yourusername/dns-guardian/issues)
+- For commercial licensing: See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md)
+
+---
+
+The full text of the AGPL-3.0 license can be found at:
+https://www.gnu.org/licenses/agpl-3.0.en.html

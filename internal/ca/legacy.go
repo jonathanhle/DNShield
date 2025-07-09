@@ -1,4 +1,4 @@
-// Package ca handles Certificate Authority operations for DNS Guardian.
+// Package ca handles Certificate Authority operations for DNShield.
 package ca
 
 import (

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"dns-guardian/cmd"
-	
+	"dnshield/cmd"
+
 	"github.com/spf13/cobra"
 )
 
@@ -16,9 +16,9 @@ var (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "dns-guardian",
+		Use:   "dnshield",
 		Short: "Enterprise DNS filtering agent with HTTPS interception",
-		Long: `DNS Guardian is a native macOS DNS filtering solution that combines
+		Long: `DNShield is a native macOS DNS filtering solution that combines
 DNS blocking with dynamic HTTPS certificate generation to show custom
 block pages without certificate warnings.`,
 	}
@@ -33,6 +33,7 @@ block pages without certificate warnings.`,
 		newStatusCmd(),
 		newUpdateRulesCmd(),
 		newVersionCmd(),
+		newConfigureDNSCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -71,7 +72,7 @@ func newUpdateRulesCmd() *cobra.Command {
 			fmt.Println("when the service starts and at the configured interval.")
 			fmt.Println()
 			fmt.Println("To force an update:")
-			fmt.Println("1. Restart the service: sudo ./dns-guardian run")
+			fmt.Println("1. Restart the service: sudo ./dnshield run")
 			fmt.Println("2. Or wait for the next automatic update")
 			fmt.Println()
 			fmt.Println("Manual rule updates will be implemented in v1.1.0")
@@ -85,7 +86,11 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("DNS Guardian v%s\n", version)
+			fmt.Printf("DNShield v%s\n", version)
 		},
 	}
+}
+
+func newConfigureDNSCmd() *cobra.Command {
+	return cmd.NewConfigureDNSCmd()
 }

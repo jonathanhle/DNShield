@@ -1,14 +1,14 @@
 # Configuration Reference
 
-DNS Guardian uses YAML configuration files with sensible defaults. Configuration can be provided via file or environment variables.
+DNShield uses YAML configuration files with sensible defaults. Configuration can be provided via file or environment variables.
 
 ## Configuration File Location
 
-DNS Guardian looks for configuration in the following order:
+DNShield looks for configuration in the following order:
 1. Command line flag: `--config /path/to/config.yaml`
 2. Current directory: `./config.yaml`
-3. System location: `/etc/dns-guardian/config.yaml`
-4. Environment variable: `$DNS_GUARDIAN_CONFIG`
+3. System location: `/etc/dnshield/config.yaml`
+4. Environment variable: `$DNSHIELD_CONFIG`
 
 ## Complete Configuration Reference
 
@@ -77,6 +77,34 @@ testDomains:
   - "example-blocked.com"
   - "test.doubleclick.net"
 ```
+
+## DNS Configuration Options
+
+DNS Guardian can automatically manage DNS settings on all network interfaces:
+
+### Command Line Options
+
+```bash
+# Configure DNS on all interfaces
+sudo ./dns-guardian configure-dns
+
+# Restore previous DNS settings
+sudo ./dns-guardian configure-dns --restore
+
+# Force configuration without prompts
+sudo ./dns-guardian configure-dns --force
+
+# Run with automatic DNS configuration
+sudo ./dns-guardian run --auto-configure-dns
+```
+
+### Auto-Configuration Behavior
+
+When running with `--auto-configure-dns`:
+- DNS is automatically set to 127.0.0.1 on all interfaces at startup
+- DNS settings are monitored every minute
+- Any changes are automatically corrected
+- Previous settings are saved for restoration
 
 ## Environment Variables
 

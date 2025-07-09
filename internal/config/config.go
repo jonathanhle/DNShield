@@ -1,4 +1,4 @@
-// Package config defines configuration structures and loading logic for DNS Guardian.
+// Package config defines configuration structures and loading logic for DNShield.
 // It supports YAML configuration files with validation and sensible defaults.
 // Configuration can be loaded from files or environment variables, with support
 // for hot reloading in future versions.
@@ -16,15 +16,15 @@ type Config struct {
 	S3       S3Config       `yaml:"s3"`
 	DNS      DNSConfig      `yaml:"dns"`
 	Blocking BlockingConfig `yaml:"blocking"`
-	
+
 	// For demo purposes
 	TestDomains []string `yaml:"testDomains"`
 }
 
 type AgentConfig struct {
-	DNSPort   int `yaml:"dnsPort"`
-	HTTPPort  int `yaml:"httpPort"`
-	HTTPSPort int `yaml:"httpsPort"`
+	DNSPort   int    `yaml:"dnsPort"`
+	HTTPPort  int    `yaml:"httpPort"`
+	HTTPSPort int    `yaml:"httpsPort"`
 	LogLevel  string `yaml:"logLevel"`
 }
 
@@ -44,8 +44,8 @@ type DNSConfig struct {
 }
 
 type BlockingConfig struct {
-	DefaultAction string `yaml:"defaultAction"`
-	BlockType     string `yaml:"blockType"`
+	DefaultAction string        `yaml:"defaultAction"`
+	BlockType     string        `yaml:"blockType"`
 	BlockTTL      time.Duration `yaml:"blockTTL"`
 }
 
@@ -76,7 +76,7 @@ func LoadConfig(path string) (*Config, error) {
 
 	// If no path specified, try default locations
 	if path == "" {
-		for _, p := range []string{"./config.yaml", "/etc/dns-guardian/config.yaml"} {
+		for _, p := range []string{"./config.yaml", "/etc/dnshield/config.yaml"} {
 			if _, err := os.Stat(p); err == nil {
 				path = p
 				break
@@ -101,10 +101,10 @@ func LoadConfig(path string) (*Config, error) {
 
 // Rules represents the blocklist rules fetched from S3
 type Rules struct {
-	Version     string    `yaml:"version"`
-	Updated     time.Time `yaml:"updated"`
-	Sources     []string  `yaml:"sources"`
-	Domains     []string  `yaml:"domains"`
-	Whitelist   []string  `yaml:"whitelist"`
-	Regex       []string  `yaml:"regex,omitempty"`
+	Version   string    `yaml:"version"`
+	Updated   time.Time `yaml:"updated"`
+	Sources   []string  `yaml:"sources"`
+	Domains   []string  `yaml:"domains"`
+	Whitelist []string  `yaml:"whitelist"`
+	Regex     []string  `yaml:"regex,omitempty"`
 }

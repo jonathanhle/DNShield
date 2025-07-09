@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"dns-guardian/internal/ca"
-	
+	"dnshield/internal/ca"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -17,16 +17,16 @@ func NewInstallCACmd() *cobra.Command {
 		Long: `Generate a local Certificate Authority and install it in the system keychain.
 This is required for HTTPS interception without certificate warnings.
 
-The CA certificate will be stored in ~/.dns-guardian/ and installed in the system keychain.
+The CA certificate will be stored in ~/.dnshield/ and installed in the system keychain.
 You will be prompted for your password to install the certificate.`,
 		RunE: runInstallCA,
 	}
 }
 
 func runInstallCA(cmd *cobra.Command, args []string) error {
-	fmt.Println("🔐 DNS Guardian CA Installation")
+	fmt.Println("🔐 DNShield CA Installation")
 	fmt.Println("================================")
-	
+
 	// Check security mode
 	if ca.UseKeychain() {
 		fmt.Println("🔒 V2.0 Security Mode: Keychain storage enabled")
@@ -34,29 +34,29 @@ func runInstallCA(cmd *cobra.Command, args []string) error {
 		fmt.Println("   Key will be non-extractable and process-restricted")
 		fmt.Println()
 	}
-	
+
 	// Check if running as root (not recommended for CA installation)
 	if os.Geteuid() == 0 {
 		fmt.Println("⚠️  Warning: Running as root. The CA will be installed system-wide.")
 	}
-	
+
 	// Load or create CA
 	fmt.Println("📝 Loading or creating CA certificate...")
 	caManager, err := ca.LoadOrCreateManager()
 	if err != nil {
 		return fmt.Errorf("failed to load/create CA: %v", err)
 	}
-	
+
 	// Get CA info
 	cert := caManager.Certificate()
 	fmt.Printf("✅ CA Subject: %s\n", cert.Subject)
 	fmt.Printf("✅ Valid until: %s\n", cert.NotAfter.Format("2006-01-02"))
 	fmt.Printf("✅ CA Path: %s\n", ca.GetCAPath())
-	
+
 	// Install CA
 	fmt.Println("\n🔧 Installing CA in system keychain...")
 	fmt.Println("📌 You may be prompted for your password.")
-	
+
 	if err := caManager.InstallCA(); err != nil {
 		logrus.WithError(err).Error("Failed to install CA")
 		fmt.Println("\n❌ Failed to install CA certificate")
@@ -67,13 +67,13 @@ func runInstallCA(cmd *cobra.Command, args []string) error {
 		fmt.Printf("4. Trust the certificate for SSL\n")
 		return err
 	}
-	
+
 	fmt.Println("\n✅ CA certificate installed successfully!")
-	fmt.Println("\n🎉 Setup complete! DNS Guardian can now intercept HTTPS traffic.")
+	fmt.Println("\n🎉 Setup complete! DNShield can now intercept HTTPS traffic.")
 	fmt.Println("\nNext steps:")
-	fmt.Println("1. Run the agent: sudo ./dns-guardian run")
+	fmt.Println("1. Run the agent: sudo ./dnshield run")
 	fmt.Println("2. Set your DNS to 127.0.0.1")
 	fmt.Println("3. Test by visiting a blocked domain")
-	
+
 	return nil
 }

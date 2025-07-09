@@ -21,7 +21,7 @@ var blockPageHTML = `<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website Blocked - DNS Guardian</title>
+    <title>Website Blocked - DNShield</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -97,17 +97,17 @@ var blockPageHTML = `<!DOCTYPE html>
         <p>This domain was blocked for your protection.</p>
         <p class="reason">{{.Reason}}</p>
         <p class="timestamp">{{.Timestamp}}</p>
-        <p class="agent-info">DNS Guardian v{{.Version}}</p>
+        <p class="agent-info">DNShield v{{.Version}}</p>
     </div>
 </body>
 </html>`
 
 // HTTPSProxy handles HTTPS requests with dynamic certificates
 type HTTPSProxy struct {
-	certGen    *CertGenerator
-	httpServer *http.Server
+	certGen     *CertGenerator
+	httpServer  *http.Server
 	httpsServer *http.Server
-	blockPage  *template.Template
+	blockPage   *template.Template
 }
 
 // BlockPageData contains data for the block page template
@@ -125,12 +125,12 @@ func NewHTTPSProxy(certGen *CertGenerator) (*HTTPSProxy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse block page template: %v", err)
 	}
-	
+
 	proxy := &HTTPSProxy{
 		certGen:   certGen,
 		blockPage: tmpl,
 	}
-	
+
 	// Create HTTP server (redirect to HTTPS)
 	proxy.httpServer = &http.Server{
 		Addr:         ":80",
@@ -138,7 +138,7 @@ func NewHTTPSProxy(certGen *CertGenerator) (*HTTPSProxy, error) {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 	}
-	
+
 	// Create HTTPS server
 	proxy.httpsServer = &http.Server{
 		Addr:         ":443",
@@ -149,7 +149,7 @@ func NewHTTPSProxy(certGen *CertGenerator) (*HTTPSProxy, error) {
 			GetCertificate: certGen.GetCertificate,
 		},
 	}
-	
+
 	return proxy, nil
 }
 
@@ -162,7 +162,7 @@ func (p *HTTPSProxy) Start() error {
 			logrus.WithError(err).Error("HTTP server error")
 		}
 	}()
-	
+
 	// Start HTTPS server
 	go func() {
 		logrus.Info("Starting HTTPS server on :443")
@@ -170,26 +170,26 @@ func (p *HTTPSProxy) Start() error {
 			logrus.WithError(err).Error("HTTPS server error")
 		}
 	}()
-	
+
 	return nil
 }
 
 // Stop stops both servers
 func (p *HTTPSProxy) Stop() error {
 	var errs []error
-	
+
 	if err := p.httpServer.Close(); err != nil {
 		errs = append(errs, err)
 	}
-	
+
 	if err := p.httpsServer.Close(); err != nil {
 		errs = append(errs, err)
 	}
-	
+
 	if len(errs) > 0 {
 		return fmt.Errorf("errors stopping servers: %v", errs)
 	}
-	
+
 	return nil
 }
 
@@ -205,23 +205,23 @@ func (p *HTTPSProxy) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 	if host, _, err := net.SplitHostPort(domain); err == nil {
 		domain = host
 	}
-	
+
 	logrus.WithField("domain", domain).Info("Serving block page")
-	
+
 	data := BlockPageData{
 		Domain:    domain,
 		Reason:    "This domain is blocked by your organization's security policy",
 		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
 		Version:   "1.0.0",
 	}
-	
+
 	var buf bytes.Buffer
 	if err := p.blockPage.Execute(&buf, data); err != nil {
 		logrus.WithError(err).Error("Failed to render block page")
 		http.Error(w, "Blocked", http.StatusForbidden)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("X-Blocked-Domain", domain)

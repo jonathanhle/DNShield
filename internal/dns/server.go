@@ -14,10 +14,10 @@ import (
 
 // Server is the DNS server
 type Server struct {
-	handler  *Handler
-	servers  []*dns.Server
-	mu       sync.Mutex
-	started  bool
+	handler *Handler
+	servers []*dns.Server
+	mu      sync.Mutex
+	started bool
 }
 
 // NewServer creates a new DNS server
@@ -31,29 +31,29 @@ func NewServer(handler *Handler) *Server {
 func (s *Server) Start(port int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if s.started {
 		return fmt.Errorf("server already started")
 	}
-	
+
 	addr := fmt.Sprintf(":%d", port)
-	
+
 	// Create UDP server
 	udpServer := &dns.Server{
 		Addr:    addr,
 		Net:     "udp",
 		Handler: s.handler,
 	}
-	
+
 	// Create TCP server
 	tcpServer := &dns.Server{
 		Addr:    addr,
 		Net:     "tcp",
 		Handler: s.handler,
 	}
-	
+
 	s.servers = []*dns.Server{udpServer, tcpServer}
-	
+
 	// Start servers
 	for _, server := range s.servers {
 		go func(srv *dns.Server) {
@@ -61,13 +61,13 @@ func (s *Server) Start(port int) error {
 				"addr": srv.Addr,
 				"net":  srv.Net,
 			}).Info("Starting DNS server")
-			
+
 			if err := srv.ListenAndServe(); err != nil {
 				logrus.WithError(err).Error("DNS server error")
 			}
 		}(server)
 	}
-	
+
 	s.started = true
 	return nil
 }
@@ -76,17 +76,17 @@ func (s *Server) Start(port int) error {
 func (s *Server) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if !s.started {
 		return nil
 	}
-	
+
 	for _, server := range s.servers {
 		if err := server.Shutdown(); err != nil {
 			logrus.WithError(err).Warn("Error shutting down DNS server")
 		}
 	}
-	
+
 	s.started = false
 	return nil
 }

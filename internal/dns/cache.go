@@ -40,18 +40,18 @@ func makeKey(domain string, qtype uint16) string {
 func (c *Cache) Get(domain string, qtype uint16) []dns.RR {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	key := makeKey(domain, qtype)
 	entry, exists := c.entries[key]
 	if !exists {
 		return nil
 	}
-	
+
 	// Check if expired
 	if time.Now().After(entry.Expiration) {
 		return nil
 	}
-	
+
 	// Return a copy of the answer
 	answer := make([]dns.RR, len(entry.Answer))
 	copy(answer, entry.Answer)
@@ -62,7 +62,7 @@ func (c *Cache) Get(domain string, qtype uint16) []dns.RR {
 func (c *Cache) Set(domain string, qtype uint16, answer []dns.RR) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Simple cache eviction - remove oldest entries if at capacity
 	if len(c.entries) >= c.maxSize {
 		// Remove ~10% of entries
@@ -75,7 +75,7 @@ func (c *Cache) Set(domain string, qtype uint16, answer []dns.RR) {
 			}
 		}
 	}
-	
+
 	key := makeKey(domain, qtype)
 	c.entries[key] = &CacheEntry{
 		Answer:     answer,

@@ -1,8 +1,8 @@
-# DNS Guardian Architecture
+# DNShield Architecture
 
 ## System Overview
 
-DNS Guardian is a native macOS DNS filtering solution that combines DNS sinkholing with dynamic HTTPS certificate generation to provide transparent content filtering without browser warnings.
+DNShield is a native macOS DNS filtering solution that combines DNS sinkholing with dynamic HTTPS certificate generation to provide transparent content filtering without browser warnings.
 
 ## Core Components
 

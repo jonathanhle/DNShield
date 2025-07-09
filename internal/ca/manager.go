@@ -1,4 +1,4 @@
-// Package ca handles Certificate Authority operations for DNS Guardian.
+// Package ca handles Certificate Authority operations for DNShield.
 package ca
 
 import (
@@ -22,17 +22,17 @@ func UseKeychain() bool {
 	if runtime.GOOS != "darwin" {
 		return false
 	}
-	
+
 	// Check environment variable
-	if os.Getenv("DNS_GUARDIAN_USE_KEYCHAIN") == "true" {
+	if os.Getenv("DNSHIELD_USE_KEYCHAIN") == "true" {
 		return true
 	}
-	
-	// Check if we're in v2.0 mode (for crypto exchange)
-	if os.Getenv("DNS_GUARDIAN_SECURITY_MODE") == "v2" {
+
+	// Check if we're in v2.0 mode (for high-security environment)
+	if os.Getenv("DNSHIELD_SECURITY_MODE") == "v2" {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -41,12 +41,12 @@ func LoadOrCreateManager() (Manager, error) {
 	if UseKeychain() {
 		return LoadOrCreateKeychainCA()
 	}
-	
+
 	// Use legacy file-based CA for compatibility
 	legacyCA, err := LoadOrCreateLegacyCA()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &LegacyCAAdapter{ca: legacyCA}, nil
 }

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"dns-guardian/internal/audit"
-	"dns-guardian/internal/ca"
-	"dns-guardian/internal/security"
+	"dnshield/internal/audit"
+	"dnshield/internal/ca"
+	"dnshield/internal/security"
 	"github.com/sirupsen/logrus"
 )
 
@@ -35,10 +35,10 @@ func NewCertGenerator(caManager ca.Manager) *CertGenerator {
 		ca:    caManager,
 		cache: make(map[string]*cachedCert),
 	}
-	
+
 	// Start cache cleanup goroutine
 	go gen.cleanupExpiredCerts()
-	
+
 	return gen
 }
 
@@ -63,7 +63,7 @@ func NewCertGenerator(caManager ca.Manager) *CertGenerator {
 //   - An error if certificate generation fails
 func (g *CertGenerator) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	domain := hello.ServerName
-	
+
 	// Check cache
 	g.mu.RLock()
 	if cached, ok := g.cache[domain]; ok {
@@ -83,66 +83,66 @@ func (g *CertGenerator) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certifi
 	} else {
 		g.mu.RUnlock()
 	}
-	
+
 	// Generate new certificate
 	start := time.Now()
-	
+
 	// Generate key pair
 	key, err := rsa.GenerateKey(rand.Reader, security.CertificateKeyBits)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create certificate template
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().Unix()),
 		Subject: pkix.Name{
 			CommonName: domain,
 		},
-		NotBefore:    time.Now().Add(-security.CertificateNotBeforeOffset),
-		NotAfter:     time.Now().Add(security.GetDomainCertificateValidity()), // 5 minutes
-		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     getDNSNames(domain),
+		NotBefore:   time.Now().Add(-security.CertificateNotBeforeOffset),
+		NotAfter:    time.Now().Add(security.GetDomainCertificateValidity()), // 5 minutes
+		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:    getDNSNames(domain),
 	}
-	
+
 	// Sign certificate
 	certDER, err := g.ca.SignCertificate(template, g.ca.Certificate(), &key.PublicKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Parse certificate
 	cert, err := x509.ParseCertificate(certDER)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to tls.Certificate
 	tlsCert := &tls.Certificate{
 		Certificate: [][]byte{cert.Raw},
 		PrivateKey:  key,
 		Leaf:        cert,
 	}
-	
+
 	// Cache it with expiration time
 	// Use certificate NotAfter minus buffer for cache expiration
 	cacheTTL := security.GetCacheTTL()
 	expiresAt := time.Now().Add(cacheTTL)
-	
+
 	g.mu.Lock()
 	g.cache[domain] = &cachedCert{
 		cert:      tlsCert,
 		expiresAt: expiresAt,
 	}
 	g.mu.Unlock()
-	
+
 	logrus.WithFields(logrus.Fields{
 		"domain":    domain,
 		"cacheTTL":  cacheTTL,
 		"expiresAt": expiresAt.Format(time.RFC3339),
 	}).Debug("Certificate cached")
-	
+
 	duration := time.Since(start)
 	logrus.WithFields(logrus.Fields{
 		"domain":   domain,
@@ -150,10 +150,10 @@ func (g *CertGenerator) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certifi
 		"validity": security.GetDomainCertificateValidity(),
 		"notAfter": cert.NotAfter.Format(time.RFC3339),
 	}).Info("Generated certificate")
-	
+
 	// Audit log the certificate generation
 	audit.LogCertGeneration(domain, duration, false)
-	
+
 	return tlsCert, nil
 }
 
@@ -168,11 +168,11 @@ func (g *CertGenerator) ClearCache() {
 func (g *CertGenerator) cleanupExpiredCerts() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		now := time.Now()
 		expired := []string{}
-		
+
 		// Find expired certificates
 		g.mu.RLock()
 		for domain, cached := range g.cache {
@@ -181,7 +181,7 @@ func (g *CertGenerator) cleanupExpiredCerts() {
 			}
 		}
 		g.mu.RUnlock()
-		
+
 		// Remove expired certificates
 		if len(expired) > 0 {
 			g.mu.Lock()
@@ -189,7 +189,7 @@ func (g *CertGenerator) cleanupExpiredCerts() {
 				delete(g.cache, domain)
 			}
 			g.mu.Unlock()
-			
+
 			logrus.WithField("count", len(expired)).Debug("Cleaned up expired certificates")
 		}
 	}

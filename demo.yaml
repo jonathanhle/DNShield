@@ -1,5 +1,5 @@
-# DNS Guardian Demo Rules
-# Upload this file to: s3://hoang-my-test-s3-bucket/blocklists/demo.yaml
+# DNShield Demo Rules
+# Upload this file to: s3://your-dns-rules-bucket/blocklists/demo.yaml
 
 version: "1.0"
 updated: 2024-01-20T10:00:00Z

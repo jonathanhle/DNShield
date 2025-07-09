@@ -1,4 +1,4 @@
-module dns-guardian
+module dnshield
 
 go 1.21
 
@@ -7,7 +7,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.11
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.47.0
-	github.com/keybase/go-keychain v0.0.1
 	github.com/miekg/dns v1.1.57
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
@@ -31,6 +30,7 @@ require (
 	github.com/aws/smithy-go v1.19.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect

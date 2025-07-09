@@ -2,7 +2,7 @@
 
 ## 🔒 Security Model
 
-DNS Guardian implements a defense-in-depth security approach for enterprise DNS filtering with HTTPS interception capabilities.
+DNShield implements a defense-in-depth security approach for enterprise DNS filtering with HTTPS interception capabilities.
 
 ### Core Security Principles
 
@@ -16,7 +16,7 @@ DNS Guardian implements a defense-in-depth security approach for enterprise DNS 
 ### Certificate Authority (CA) Management
 
 #### Current Implementation (v1.x)
-- **Storage**: CA private key stored at `~/.dns-guardian/ca.key` with 0600 permissions
+- **Storage**: CA private key stored at `~/.dnshield/ca.key` with 0600 permissions
 - **Generation**: 4096-bit RSA key, 10-year validity
 - **Isolation**: Each machine generates its own CA - no key distribution
 - **Trust**: CA certificate must be manually installed in system keychain
@@ -31,11 +31,11 @@ DNS Guardian implements a defense-in-depth security approach for enterprise DNS 
 - **Root Access Required**: Both installation and runtime require sudo
 - **Enterprise Ready**: Perfect for Jamf/Munki deployment
 - **Non-Extractable**: Key stored securely in System keychain
-- **Audit Trail**: All CA operations logged to ~/.dns-guardian/audit/
+- **Audit Trail**: All CA operations logged to ~/.dnshield/audit/
 
 ### Certificate Generation
 
-DNS Guardian only generates certificates for domains that are:
+DNShield only generates certificates for domains that are:
 1. Successfully resolved by DNS to the sinkhole address (127.0.0.1)
 2. Not on the critical domains protection list
 3. Within rate limiting thresholds
@@ -216,7 +216,7 @@ timestamp=2024-01-20T10:30:45 level=AUDIT event=cert_generated domain=example.co
 We take security seriously. If you discover a vulnerability:
 
 1. **DO NOT** open a public issue
-2. Email: security@your-company.com
+2. Open a private security advisory on GitHub
 3. Include:
    - Description of the issue
    - Steps to reproduce
@@ -265,7 +265,7 @@ We take security seriously. If you discover a vulnerability:
 
 ## 🔐 Enabling v2.0 Security Mode
 
-For cryptocurrency exchanges and high-security environments:
+For financial institutions and high-security environments:
 
 ```bash
 # Install CA with v2.0 security mode (System Keychain)
