@@ -75,3 +75,5 @@ aws-credentials
 credentials.json
 secrets.yaml
 dnshield
+
+CLAUDE.md
