@@ -28,6 +28,8 @@ build/
 *.out
 coverage.txt
 coverage.html
+*.app
+DNShield.app/
 
 # OS files
 .DS_Store
