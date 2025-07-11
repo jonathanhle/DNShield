@@ -17,6 +17,7 @@ import (
 	"dnshield/internal/ca"
 	"dnshield/internal/config"
 	"dnshield/internal/dns"
+	"dnshield/internal/extension"
 	"dnshield/internal/proxy"
 	"dnshield/internal/rules"
 
@@ -24,37 +25,89 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// RunMode represents the mode DNShield runs in
+type RunMode string
+
+const (
+	RunModeDNS       RunMode = "dns"       // Default DNS takeover mode
+	RunModeExtension RunMode = "extension" // Network Extension mode
+)
+
 // RunOptions contains options for the run command
 type RunOptions struct {
 	ConfigFile    string
 	AutoConfigure bool
+	Mode          RunMode
 }
 
 // NewRunCmd creates the run command
 func NewRunCmd() *cobra.Command {
-	opts := &RunOptions{}
+	opts := &RunOptions{
+		Mode: RunModeDNS, // Default to DNS mode
+	}
 
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run the DNShield agent service",
-		Long:  `Start the DNS server and HTTPS proxy to filter network traffic.`,
+		Long: `Start the DNS server and HTTPS proxy to filter network traffic.
+
+By default, runs in DNS mode which takes over system DNS settings.
+Use --mode=extension to run with Network Extension for kernel-level filtering.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate mode
+			switch opts.Mode {
+			case RunModeDNS, RunModeExtension:
+				// Valid modes
+			default:
+				return fmt.Errorf("invalid mode: %s (must be 'dns' or 'extension')", opts.Mode)
+			}
+			
 			return runAgent(opts)
 		},
 	}
 
 	cmd.Flags().StringVarP(&opts.ConfigFile, "config", "c", "", "config file path")
 	cmd.Flags().BoolVar(&opts.AutoConfigure, "auto-configure-dns", false, "automatically configure DNS on all interfaces to 127.0.0.1")
+	cmd.Flags().Var((*runModeFlag)(&opts.Mode), "mode", "run mode: dns (default) or extension")
 
 	return cmd
+}
+
+// runModeFlag allows RunMode to be used as a flag
+type runModeFlag RunMode
+
+func (r *runModeFlag) String() string {
+	return string(*r)
+}
+
+func (r *runModeFlag) Set(value string) error {
+	*r = runModeFlag(value)
+	return nil
+}
+
+func (r *runModeFlag) Type() string {
+	return "mode"
 }
 
 func runAgent(opts *RunOptions) error {
 	// Check if running as root
 	if os.Geteuid() != 0 {
-		return fmt.Errorf("dnshield must be run as root to bind to ports 53, 80, and 443")
+		return fmt.Errorf("dnshield must be run as root")
 	}
 
+	// Branch based on mode
+	switch opts.Mode {
+	case RunModeExtension:
+		return runAgentExtensionMode(opts)
+	case RunModeDNS:
+		fallthrough
+	default:
+		return runAgentDNSMode(opts)
+	}
+}
+
+// runAgentDNSMode runs DNShield in traditional DNS takeover mode
+func runAgentDNSMode(opts *RunOptions) error {
 	// Auto-configure DNS if requested
 	if opts.AutoConfigure {
 		logrus.Info("Auto-configuring DNS on all interfaces...")
@@ -164,6 +217,129 @@ func runAgent(opts *RunOptions) error {
 	if err := dnsServer.Stop(); err != nil {
 		logrus.WithError(err).Warn("Error stopping DNS server")
 	}
+	if err := httpsProxy.Stop(); err != nil {
+		logrus.WithError(err).Warn("Error stopping HTTPS proxy")
+	}
+
+	logrus.Info("DNShield stopped")
+	return nil
+}
+
+// runAgentExtensionMode runs DNShield using Network Extension for kernel-level filtering
+func runAgentExtensionMode(opts *RunOptions) error {
+	logrus.Info("Starting DNShield in Network Extension mode")
+
+	// Note: Auto-configure DNS is not needed in extension mode
+	if opts.AutoConfigure {
+		logrus.Warn("--auto-configure-dns is ignored in extension mode (Network Extension handles DNS)")
+	}
+
+	// Load configuration
+	cfg, err := config.LoadConfig(opts.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %v", err)
+	}
+
+	// Set up logging
+	logLevel := cfg.Agent.LogLevel
+	if envLogLevel := os.Getenv("DNSHIELD_LOG_LEVEL"); envLogLevel != "" {
+		logLevel = envLogLevel
+	}
+	
+	level, err := logrus.ParseLevel(logLevel)
+	if err != nil {
+		level = logrus.InfoLevel
+	}
+	logrus.SetLevel(level)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+
+	// Initialize audit logging
+	if err := audit.Initialize(); err != nil {
+		logrus.WithError(err).Warn("Failed to initialize audit logging")
+	}
+	defer audit.Close()
+
+	// Log binary integrity information
+	logBinaryIntegrity()
+
+	// Load CA for HTTPS proxy (still needed for block pages)
+	logrus.Info("Loading CA certificate...")
+	caManager, err := ca.LoadOrCreateManager()
+	if err != nil {
+		return fmt.Errorf("failed to load CA: %v", err)
+	}
+
+	// Create components
+	blocker := dns.NewBlocker()
+
+	// Load initial test domains
+	if len(cfg.TestDomains) > 0 {
+		logrus.WithField("count", len(cfg.TestDomains)).Info("Loading test domains")
+		blocker.UpdateDomains(cfg.TestDomains)
+	}
+
+	// Create certificate generator and HTTPS proxy (for block pages)
+	certGen := proxy.NewCertGenerator(caManager)
+	httpsProxy, err := proxy.NewHTTPSProxy(certGen)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTPS proxy: %v", err)
+	}
+
+	// Start HTTPS proxy for block pages
+	if err := httpsProxy.Start(); err != nil {
+		return fmt.Errorf("failed to start HTTPS proxy: %v", err)
+	}
+
+	logrus.Info("HTTP server listening on port 80")
+	logrus.Info("HTTPS server listening on port 443")
+
+	// Create Network Extension manager
+	bundleID := cfg.Extension.BundleID
+	if bundleID == "" {
+		bundleID = "com.dnshield.network-extension"
+	}
+	extManager := extension.NewManager(bundleID, blocker)
+
+	// Check if extension is installed
+	if !extManager.IsInstalled() {
+		return fmt.Errorf("Network Extension is not installed. Run: sudo dnshield extension install")
+	}
+
+	// Start Network Extension
+	if err := extManager.Start(); err != nil {
+		return fmt.Errorf("failed to start Network Extension: %v", err)
+	}
+
+	// Set up S3 rule fetching if configured
+	if cfg.S3.Bucket != "" {
+		go startRuleUpdater(cfg, blocker)
+		
+		// Start periodic extension updates
+		updateInterval := 5 * time.Minute
+		if cfg.Extension.UpdateInterval > 0 {
+			updateInterval = cfg.Extension.UpdateInterval
+		}
+		stopUpdates := extManager.StartPeriodicUpdates(updateInterval)
+		defer close(stopUpdates)
+	}
+
+	logrus.WithField("domains", blocker.GetBlockedCount()).Info("Network Extension started with blocked domains")
+
+	// Wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
+
+	logrus.Info("Shutting down...")
+
+	// Stop Network Extension
+	if err := extManager.Stop(); err != nil {
+		logrus.WithError(err).Warn("Error stopping Network Extension")
+	}
+
+	// Stop HTTPS proxy
 	if err := httpsProxy.Stop(); err != nil {
 		logrus.WithError(err).Warn("Error stopping HTTPS proxy")
 	}

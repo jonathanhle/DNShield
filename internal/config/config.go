@@ -12,10 +12,11 @@ import (
 )
 
 type Config struct {
-	Agent    AgentConfig    `yaml:"agent"`
-	S3       S3Config       `yaml:"s3"`
-	DNS      DNSConfig      `yaml:"dns"`
-	Blocking BlockingConfig `yaml:"blocking"`
+	Agent     AgentConfig      `yaml:"agent"`
+	S3        S3Config         `yaml:"s3"`
+	DNS       DNSConfig        `yaml:"dns"`
+	Blocking  BlockingConfig   `yaml:"blocking"`
+	Extension ExtensionConfig  `yaml:"extension"`
 
 	// For demo purposes
 	TestDomains []string `yaml:"testDomains"`
@@ -49,6 +50,13 @@ type BlockingConfig struct {
 	BlockTTL      time.Duration `yaml:"blockTTL"`
 }
 
+// ExtensionConfig contains Network Extension specific configuration
+type ExtensionConfig struct {
+	BundleID       string        `yaml:"bundleId"`
+	UpdateInterval time.Duration `yaml:"updateInterval"`
+	Enabled        bool          `yaml:"enabled"`
+}
+
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(path string) (*Config, error) {
 	// Set defaults
@@ -71,6 +79,11 @@ func LoadConfig(path string) (*Config, error) {
 		},
 		S3: S3Config{
 			UpdateInterval: 5 * time.Minute,
+		},
+		Extension: ExtensionConfig{
+			BundleID:       "com.dnshield.network-extension",
+			UpdateInterval: 5 * time.Minute,
+			Enabled:        false,
 		},
 	}
 

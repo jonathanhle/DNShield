@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Network Extension entitlements for Developer ID distribution -->
+    <key>com.apple.developer.networking.networkextension</key>
+    <array>
+        <string>dns-proxy-systemextension</string>
+    </array>
+    
+    <!-- System Extension install capability -->
+    <key>com.apple.developer.system-extension.install</key>
+    <true/>
+    
+    <!-- Hardened Runtime -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    
+    <!-- Allow system extension -->
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.dnshield</string>
+    </array>
+</dict>
+</plist>

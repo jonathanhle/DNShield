@@ -45,6 +45,21 @@ blocking:
   blockType: "sinkhole"    # How to block: sinkhole, nxdomain, or refused
   blockTTL: "10s"         # TTL for blocked responses
 
+# Network Extension configuration (Enterprise kernel-level filtering)
+# This provides an alternative to DNS takeover mode with these benefits:
+# - Cannot be bypassed by applications
+# - Works with captive portals (airplane WiFi, etc.)
+# - Requires macOS 10.15+ and admin approval
+extension:
+  # Bundle ID of the Network Extension (must match signing)
+  bundleId: "com.dnshield.network-extension"
+  
+  # How often to sync blocklists with extension
+  updateInterval: "5m"
+  
+  # Enable Network Extension mode
+  enabled: false
+
 # Test domains (remove in production)
 # These domains will be blocked for testing
 testDomains:

@@ -100,6 +100,32 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 - **Drift Protection**: Auto-monitors and corrects DNS configuration changes every minute
 - **Zero Manual Setup**: Run with `--auto-configure-dns` for fully automated setup
 
+### Network Extension Mode (Enterprise)
+
+For environments requiring kernel-level filtering that cannot be bypassed:
+
+```bash
+# Build with Network Extension support
+make build-with-extension
+
+# Install the Network Extension
+sudo ./dnshield extension install
+
+# Run in Network Extension mode
+sudo ./dnshield run --mode=extension
+```
+
+**Network Extension Benefits:**
+- **🔐 Kernel-level filtering**: Cannot be bypassed by applications
+- **✈️ Captive Portal Compatible**: Works with airplane WiFi and hotel networks
+- **🚫 No DNS Takeover**: Doesn't modify system DNS settings
+- **🛡️ Enhanced Security**: Runs at the network layer
+
+**Requirements:**
+- macOS 10.15 (Catalina) or later
+- Admin approval in System Preferences > Privacy & Security
+- Code signing with Apple Developer ID for production
+
 ## 🏗️ Architecture
 
 ```
@@ -151,6 +177,12 @@ agent:
   dnsPort: 53
   httpPort: 80
   httpsPort: 443
+
+# Network Extension (optional)
+extension:
+  bundleId: "com.dnshield.network-extension"
+  updateInterval: "5m"
+  enabled: false
 ```
 
 ### S3 Rule Format

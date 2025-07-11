@@ -34,6 +34,10 @@ help:
 	@echo "  make configure-dns  Configure DNS on all interfaces"
 	@echo "  make restore-dns    Restore previous DNS settings"
 	@echo ""
+	@echo "Network Extension:"
+	@echo "  make build-extension Build Network Extension"
+	@echo "  make run-extension  Run in Network Extension mode"
+	@echo ""
 	@echo "Development:"
 	@echo "  make test           Run tests"
 	@echo "  make fmt            Format code"
@@ -43,6 +47,12 @@ build:
 	@echo "Building $(BINARY_NAME)..."
 	@go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY_NAME) .
 	@echo "Build complete: ./$(BINARY_NAME)"
+
+# Build with Network Extension support (requires macOS and signing)
+build-with-extension:
+	@echo "Building $(BINARY_NAME) with Network Extension support..."
+	@go build -tags extension -ldflags "-X main.version=$(VERSION)" -o $(BINARY_NAME) .
+	@echo "Build complete with extension support: ./$(BINARY_NAME)"
 
 # Simple installation (file-based CA storage)
 install: clean build
@@ -233,6 +243,50 @@ dist: build-universal
 	@hdiutil create -volname "DNShield $(VERSION)" -srcfolder dist -ov -format UDZO dnshield-$(VERSION).dmg
 	@rm -rf dist
 	@echo "Distribution package created: dnshield-$(VERSION).dmg"
+
+#=============================================================================
+# Network Extension Support
+#=============================================================================
+
+# Build the Network Extension
+build-extension: build
+	@echo "Building Network Extension..."
+	@if [ -z "$(DEVELOPER_ID)" ]; then \
+		echo "❌ DEVELOPER_ID not set. Required for signing."; \
+		echo "   Set with: export DEVELOPER_ID='Developer ID Application: Your Name (TEAMID)'"; \
+		exit 1; \
+	fi
+	@echo "Creating extension bundle structure..."
+	@mkdir -p network-extension/build
+	@echo "Compiling Swift DNS Proxy Provider..."
+	@swiftc -target x86_64-apple-macos10.15 \
+	        -framework NetworkExtension \
+	        -framework Foundation \
+	        -emit-library \
+	        -o network-extension/build/DNShieldExtension \
+	        network-extension/DNSProxyProvider.swift
+	@echo "Signing Network Extension..."
+	@codesign --force \
+	          --sign "$(DEVELOPER_ID)" \
+	          --entitlements network-extension/Entitlements.plist \
+	          --timestamp \
+	          --options runtime \
+	          network-extension/build/DNShieldExtension
+	@echo "✅ Network Extension built successfully"
+
+# Install the extension (requires admin)
+install-extension: build build-extension
+	@echo "Installing Network Extension..."
+	@sudo ./$(BINARY_NAME) extension install
+
+# Run in Network Extension mode
+run-extension: build
+	@echo "Starting DNShield in Network Extension mode..."
+	@sudo ./$(BINARY_NAME) run --mode=extension
+
+# Check extension status
+extension-status: build
+	@./$(BINARY_NAME) extension status
 
 #=============================================================================
 # Demo Setup (for testing)

@@ -98,3 +98,16 @@ func (b *Blocker) GetBlockedCount() int {
 	defer b.mu.RUnlock()
 	return len(b.blockedDomains)
 }
+
+// GetBlockedDomains returns a slice of all blocked domains
+// This is used by the Network Extension to get the current blocklist
+func (b *Blocker) GetBlockedDomains() []string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	
+	domains := make([]string, 0, len(b.blockedDomains))
+	for domain := range b.blockedDomains {
+		domains = append(domains, domain)
+	}
+	return domains
+}
