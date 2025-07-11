@@ -19,11 +19,8 @@ echo "Compiling Swift DNS Proxy Provider..."
 swiftc -target x86_64-apple-macos10.15 \
        -framework NetworkExtension \
        -framework Foundation \
-       -framework os.log \
-       -parse-as-library \
-       -emit-executable \
        -o "${MACOS_DIR}/${EXTENSION_NAME}" \
-       DNSProxyProvider.swift
+       main.swift DNSProxyProvider.swift
 
 # Make it universal binary if on Apple Silicon
 if [[ $(uname -m) == "arm64" ]]; then
@@ -31,11 +28,8 @@ if [[ $(uname -m) == "arm64" ]]; then
     swiftc -target arm64-apple-macos10.15 \
            -framework NetworkExtension \
            -framework Foundation \
-           -framework os.log \
-           -parse-as-library \
-           -emit-executable \
            -o "${MACOS_DIR}/${EXTENSION_NAME}-arm64" \
-           DNSProxyProvider.swift
+           main.swift DNSProxyProvider.swift
     
     lipo -create \
          -output "${MACOS_DIR}/${EXTENSION_NAME}" \

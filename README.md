@@ -105,14 +105,8 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 For environments requiring kernel-level filtering that cannot be bypassed:
 
 ```bash
-# Build with Network Extension support
-make build-with-extension
-
-# Install the Network Extension
-sudo ./dnshield extension install
-
-# Run in Network Extension mode
-sudo ./dnshield run --mode=extension
+# Quick start (requires code signing)
+make secure-mode-ext
 ```
 
 **Network Extension Benefits:**
@@ -121,10 +115,11 @@ sudo ./dnshield run --mode=extension
 - **🚫 No DNS Takeover**: Doesn't modify system DNS settings
 - **🛡️ Enhanced Security**: Runs at the network layer
 
-**Requirements:**
-- macOS 10.15 (Catalina) or later
-- Admin approval in System Preferences > Privacy & Security
-- Code signing with Apple Developer ID for production
+**Important**: Network Extensions require code signing with an Apple Developer ID to function properly. For detailed instructions on building, signing, and deploying the Network Extension, see:
+
+📖 **[Network Extension Documentation](docs/NETWORK-EXTENSION.md)**
+
+For development without code signing, use DNS mode: `make secure-mode-dns`
 
 ## 🏗️ Architecture
 

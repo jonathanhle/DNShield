@@ -14,34 +14,32 @@ VERSION=1.0.0
 help:
 	@echo "DNShield - DNS filtering with HTTPS interception"
 	@echo ""
-	@echo "Quick Start:"
-	@echo "  make install         Install DNShield (simple mode)"
-	@echo "  make run            Run DNShield"
-	@echo "  make secure         Install secure mode + run with auto DNS (all-in-one)"
-	@echo "  make secure-debug   Same as secure but with debug logging"
+	@echo "Quick Start (Choose ONE):"
+	@echo "  make secure-mode-dns     DNS takeover with secure CA storage"
+	@echo "  make secure-mode-ext     Network Extension mode (requires code signing)"
 	@echo ""
 	@echo "Commands:"
-	@echo "  make build          Build the binary"
-	@echo "  make install        Install with file-based CA storage (recommended)"
-	@echo "  make install-secure Install with System Keychain storage (requires sudo)"
-	@echo "  make run            Run DNShield (auto-detects mode)"
-	@echo "  make run-auto       Run with automatic DNS configuration"
-	@echo "  make status         Check DNShield status"
-	@echo "  make uninstall      Remove DNShield completely"
-	@echo "  make clean          Remove build artifacts"
+	@echo "  make build               Build the binary"
+	@echo "  make install             Install with file-based CA storage"
+	@echo "  make install-secure      Install with System Keychain storage"
+	@echo "  make run                 Run DNShield (auto-detects mode)"
+	@echo "  make run-auto            Run with automatic DNS configuration"
+	@echo "  make status              Check DNShield status"
+	@echo "  sudo make uninstall      Remove DNShield completely"
+	@echo "  make clean               Remove build artifacts"
 	@echo ""
 	@echo "DNS Management:"
-	@echo "  make configure-dns  Configure DNS on all interfaces"
-	@echo "  make restore-dns    Restore previous DNS settings"
+	@echo "  make configure-dns       Configure DNS on all interfaces"
+	@echo "  make restore-dns         Restore previous DNS settings"
 	@echo ""
-	@echo "Network Extension:"
-	@echo "  make build-extension Build Network Extension"
-	@echo "  make run-extension  Run in Network Extension mode"
+	@echo "Debug Modes:"
+	@echo "  make secure-mode-dns-debug    DNS mode with debug logging"
+	@echo "  make secure-mode-ext-debug    Extension mode with debug logging"
 	@echo ""
 	@echo "Development:"
-	@echo "  make test           Run tests"
-	@echo "  make fmt            Format code"
-	@echo "  make dist           Create distribution package"
+	@echo "  make test                Run tests"
+	@echo "  make fmt                 Format code"
+	@echo "  make dist                Create distribution package"
 
 build:
 	@echo "Building $(BINARY_NAME)..."
@@ -87,18 +85,49 @@ install-secure: clean build
 	@echo ""
 	@echo "Next: make run"
 
-# Complete secure setup and run with auto DNS in one command
-secure: install-secure
+# DNS takeover mode with secure CA storage
+secure-mode-dns: install-secure
 	@echo ""
-	@echo "Starting DNShield in secure mode with auto DNS configuration..."
+	@echo "Starting DNShield in secure DNS takeover mode..."
 	@sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true ./$(BINARY_NAME) run --auto-configure-dns
 
-# Secure mode with debug logging
-secure-debug: install-secure
+# Network Extension mode (kernel-level filtering)
+secure-mode-ext: build-with-extension
 	@echo ""
-	@echo "Starting DNShield in secure mode with DEBUG logging..."
-	@echo "This will show detailed information about DNS configuration and all operations."
+	@echo "Building app bundle with Network Extension..."
+	@./build-app-bundle.sh
+	@echo ""
+	@echo "Installing CA certificate (for block pages)..."
+	@sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true DNShield.app/Contents/MacOS/$(BINARY_NAME) install-ca || true
+	@sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.dnshield/ca.crt || true
+	@echo ""
+	@echo "Installing Network Extension..."
+	@sudo DNShield.app/Contents/MacOS/$(BINARY_NAME) extension install || true
+	@echo ""
+	@echo "Starting DNShield in secure Network Extension mode..."
+	@sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true DNShield.app/Contents/MacOS/$(BINARY_NAME) run --mode=extension
+
+# DNS mode with debug logging
+secure-mode-dns-debug: install-secure
+	@echo ""
+	@echo "Starting DNShield in secure DNS mode with DEBUG logging..."
 	@sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true DNSHIELD_LOG_LEVEL=debug ./$(BINARY_NAME) run --auto-configure-dns
+
+# Extension mode with debug logging
+secure-mode-ext-debug: build-with-extension
+	@echo ""
+	@echo "Building app bundle with Network Extension..."
+	@./build-app-bundle.sh
+	@echo ""
+	@echo "Installing CA certificate (for block pages)..."
+	@sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true DNShield.app/Contents/MacOS/$(BINARY_NAME) install-ca || true
+	@sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.dnshield/ca.crt || true
+	@echo ""
+	@echo "Installing Network Extension..."
+	@sudo DNShield.app/Contents/MacOS/$(BINARY_NAME) extension install || true
+	@echo ""
+	@echo "Starting DNShield in secure Network Extension mode with DEBUG logging..."
+	@sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true DNSHIELD_LOG_LEVEL=debug DNShield.app/Contents/MacOS/$(BINARY_NAME) run --mode=extension
 
 # Run DNShield (auto-detects installation mode)
 run: build
@@ -135,18 +164,39 @@ clean:
 
 # Complete uninstall
 uninstall:
+	@if [ "$$(id -u)" != "0" ]; then \
+		echo "❌ Uninstall requires administrator privileges"; \
+		echo ""; \
+		echo "Please run: sudo make uninstall"; \
+		echo ""; \
+		exit 1; \
+	fi
 	@echo "Uninstalling DNShield..."
-	@./$(BINARY_NAME) uninstall --all 2>/dev/null || true
+	# Stop any running instances
 	@pkill dnshield 2>/dev/null || true
-	@rm -rf ~/.dnshield
+	# Restore DNS settings if they were changed
+	@if [ -f ./$(BINARY_NAME) ]; then \
+		./$(BINARY_NAME) configure-dns --restore 2>/dev/null || true; \
+	fi
+	# Uninstall Network Extension if present
+	@if [ -f ./$(BINARY_NAME) ]; then \
+		./$(BINARY_NAME) extension uninstall 2>/dev/null || true; \
+	fi
+	# Run built-in uninstaller
+	@if [ -f ./$(BINARY_NAME) ]; then \
+		./$(BINARY_NAME) uninstall --all 2>/dev/null || true; \
+	fi
+	# Remove certificates from System keychain
 	@if security find-certificate -c "DNShield" /Library/Keychains/System.keychain 2>/dev/null | grep -q "alis"; then \
-		echo "Removing certificates from System keychain (requires sudo)..."; \
+		echo "Removing certificates from System keychain..."; \
 		security find-certificate -c "DNShield" /Library/Keychains/System.keychain | grep "alis" | cut -d '"' -f 4 | while read cert; do \
-			sudo security delete-certificate -c "$$cert" /Library/Keychains/System.keychain 2>/dev/null || true; \
+			security delete-certificate -c "$$cert" /Library/Keychains/System.keychain 2>/dev/null || true; \
 		done; \
 	fi
+	# Clean up remaining files and certificates
 	@security delete-certificate -c "DNShield Root CA" ~/Library/Keychains/login.keychain-db 2>/dev/null || true
 	@security delete-generic-password -s "com.dnshield.ca" 2>/dev/null || true
+	@rm -rf ~/.dnshield
 	@rm -f $(BINARY_NAME)
 	@echo "✅ Uninstall complete"
 
@@ -244,49 +294,6 @@ dist: build-universal
 	@rm -rf dist
 	@echo "Distribution package created: dnshield-$(VERSION).dmg"
 
-#=============================================================================
-# Network Extension Support
-#=============================================================================
-
-# Build the Network Extension
-build-extension: build
-	@echo "Building Network Extension..."
-	@if [ -z "$(DEVELOPER_ID)" ]; then \
-		echo "❌ DEVELOPER_ID not set. Required for signing."; \
-		echo "   Set with: export DEVELOPER_ID='Developer ID Application: Your Name (TEAMID)'"; \
-		exit 1; \
-	fi
-	@echo "Creating extension bundle structure..."
-	@mkdir -p network-extension/build
-	@echo "Compiling Swift DNS Proxy Provider..."
-	@swiftc -target x86_64-apple-macos10.15 \
-	        -framework NetworkExtension \
-	        -framework Foundation \
-	        -emit-library \
-	        -o network-extension/build/DNShieldExtension \
-	        network-extension/DNSProxyProvider.swift
-	@echo "Signing Network Extension..."
-	@codesign --force \
-	          --sign "$(DEVELOPER_ID)" \
-	          --entitlements network-extension/Entitlements.plist \
-	          --timestamp \
-	          --options runtime \
-	          network-extension/build/DNShieldExtension
-	@echo "✅ Network Extension built successfully"
-
-# Install the extension (requires admin)
-install-extension: build build-extension
-	@echo "Installing Network Extension..."
-	@sudo ./$(BINARY_NAME) extension install
-
-# Run in Network Extension mode
-run-extension: build
-	@echo "Starting DNShield in Network Extension mode..."
-	@sudo ./$(BINARY_NAME) run --mode=extension
-
-# Check extension status
-extension-status: build
-	@./$(BINARY_NAME) extension status
 
 #=============================================================================
 # Demo Setup (for testing)

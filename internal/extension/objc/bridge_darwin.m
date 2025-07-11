@@ -34,7 +34,25 @@ static dispatch_semaphore_t _installSemaphore = nil;
 
 - (void)request:(OSSystemExtensionRequest *)request didFailWithError:(NSError *)error {
     NSLog(@"DNShield: System extension request failed: %@", error.localizedDescription);
-    self.lastResult = (OSSystemExtensionRequestResult)0; // Request failed
+    
+    // Provide specific error information for common cases
+    if ([error.domain isEqualToString:@"OSSystemExtensionErrorDomain"]) {
+        switch (error.code) {
+            case 1: // OSSystemExtensionErrorCodeUnknownExtension
+                NSLog(@"DNShield: Extension not found in app bundle");
+                break;
+            case 4: // OSSystemExtensionErrorCodeAuthorizationRequired
+                NSLog(@"DNShield: User authorization required");
+                break;
+            case 8: // OSSystemExtensionErrorCodeSignatureInvalid
+                NSLog(@"DNShield: Extension requires valid code signature");
+                break;
+            default:
+                break;
+        }
+    }
+    
+    self.lastResult = (OSSystemExtensionRequestResult)error.code; // Store error code
     dispatch_semaphore_signal(self.semaphore);
 }
 
@@ -58,23 +76,44 @@ int installSystemExtensionBridge(const char* bundleID) {
     @autoreleasepool {
         NSString *extensionBundleID = [NSString stringWithUTF8String:bundleID];
         
-        DNShieldSystemExtensionDelegate *delegate = [[DNShieldSystemExtensionDelegate alloc] init];
-        
-        OSSystemExtensionRequest *request = [OSSystemExtensionRequest 
-            activationRequestForExtension:extensionBundleID 
-            queue:dispatch_get_main_queue()];
-        request.delegate = delegate;
-        
-        [[OSSystemExtensionManager sharedManager] submitRequest:request];
-        
-        // Wait for completion with timeout (60 seconds)
-        dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_SEC);
-        if (dispatch_semaphore_wait(delegate.semaphore, timeout) != 0) {
-            NSLog(@"DNShield: Installation timed out");
-            return -2; // Timeout
+        // Check if we're running from an app bundle
+        NSBundle *mainBundle = [NSBundle mainBundle];
+        if (![mainBundle.bundlePath hasSuffix:@".app"]) {
+            NSLog(@"DNShield: Not running from app bundle. System extensions must be installed from within an app bundle.");
+            return 1; // Extension not found
         }
         
-        return delegate.lastResult == OSSystemExtensionRequestCompleted ? 0 : -1;
+        // Verify the extension exists in the bundle
+        NSString *extensionPath = [mainBundle pathForResource:@"DNShieldExtension" ofType:@"systemextension" inDirectory:@"Contents/Library/SystemExtensions"];
+        if (!extensionPath) {
+            NSLog(@"DNShield: System extension not found in app bundle");
+            return 1; // Extension not found
+        }
+        
+        __block int result = -1;
+        
+        // Submit the request on the main queue
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            DNShieldSystemExtensionDelegate *delegate = [[DNShieldSystemExtensionDelegate alloc] init];
+            
+            OSSystemExtensionRequest *request = [OSSystemExtensionRequest 
+                activationRequestForExtension:extensionBundleID 
+                queue:dispatch_get_main_queue()];
+            request.delegate = delegate;
+            
+            [[OSSystemExtensionManager sharedManager] submitRequest:request];
+            
+            // Wait for completion with timeout (60 seconds)
+            dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_SEC);
+            if (dispatch_semaphore_wait(delegate.semaphore, timeout) != 0) {
+                NSLog(@"DNShield: Installation timed out");
+                result = -2; // Timeout
+            } else {
+                result = delegate.lastResult == OSSystemExtensionRequestCompleted ? 0 : (int)delegate.lastResult;
+            }
+        });
+        
+        return result;
     }
 }
 
@@ -119,21 +158,17 @@ int startDNSProxyBridge(const char* bundleID, char** domains, int domainCount) {
         dispatch_semaphore_t loadSemaphore = dispatch_semaphore_create(0);
         __block BOOL loadSuccess = NO;
         
-        [NEDNSProxyManager loadAllFromPreferencesWithCompletionHandler:^(NSArray<NEDNSProxyManager *> * _Nullable managers, NSError * _Nullable error) {
+        [[NEDNSProxyManager sharedManager] loadFromPreferencesWithCompletionHandler:^(NSError * _Nullable error) {
             if (error) {
-                NSLog(@"DNShield: Failed to load DNS proxy managers: %@", error.localizedDescription);
+                NSLog(@"DNShield: Failed to load DNS proxy manager: %@", error.localizedDescription);
             } else {
-                // Find existing or create new
-                for (NEDNSProxyManager *manager in managers) {
-                    NEDNSProxyProviderProtocol *protocol = (NEDNSProxyProviderProtocol *)manager.providerProtocol;
-                    if (protocol && [protocol.providerBundleIdentifier isEqualToString:extensionBundleID]) {
-                        _dnsProxyManager = manager;
-                        break;
-                    }
-                }
+                // Get the shared manager
+                _dnsProxyManager = [NEDNSProxyManager sharedManager];
                 
-                if (!_dnsProxyManager) {
-                    _dnsProxyManager = [[NEDNSProxyManager alloc] init];
+                // Check if it's already configured for our extension
+                NEDNSProxyProviderProtocol *existingProtocol = (NEDNSProxyProviderProtocol *)_dnsProxyManager.providerProtocol;
+                if (!existingProtocol || ![existingProtocol.providerBundleIdentifier isEqualToString:extensionBundleID]) {
+                    // Configure it for our extension
                     NEDNSProxyProviderProtocol *providerProtocol = [[NEDNSProxyProviderProtocol alloc] init];
                     providerProtocol.providerBundleIdentifier = extensionBundleID;
                     providerProtocol.providerConfiguration = @{
@@ -141,6 +176,11 @@ int startDNSProxyBridge(const char* bundleID, char** domains, int domainCount) {
                     };
                     _dnsProxyManager.providerProtocol = providerProtocol;
                     _dnsProxyManager.localizedDescription = @"DNShield DNS Filter";
+                } else {
+                    // Update configuration with new domains
+                    existingProtocol.providerConfiguration = @{
+                        @"blockedDomains": _blockedDomains
+                    };
                 }
                 
                 loadSuccess = YES;
@@ -264,14 +304,12 @@ int isExtensionInstalledBridge(const char* bundleID) {
         dispatch_semaphore_t checkSemaphore = dispatch_semaphore_create(0);
         __block BOOL installed = NO;
         
-        [NEDNSProxyManager loadAllFromPreferencesWithCompletionHandler:^(NSArray<NEDNSProxyManager *> * _Nullable managers, NSError * _Nullable error) {
-            if (!error && managers) {
-                for (NEDNSProxyManager *manager in managers) {
-                    NEDNSProxyProviderProtocol *protocol = (NEDNSProxyProviderProtocol *)manager.providerProtocol;
-                    if (protocol && [protocol.providerBundleIdentifier isEqualToString:extensionBundleID]) {
-                        installed = YES;
-                        break;
-                    }
+        [[NEDNSProxyManager sharedManager] loadFromPreferencesWithCompletionHandler:^(NSError * _Nullable error) {
+            if (!error) {
+                NEDNSProxyManager *manager = [NEDNSProxyManager sharedManager];
+                NEDNSProxyProviderProtocol *protocol = (NEDNSProxyProviderProtocol *)manager.providerProtocol;
+                if (protocol && [protocol.providerBundleIdentifier isEqualToString:extensionBundleID]) {
+                    installed = YES;
                 }
             }
             dispatch_semaphore_signal(checkSemaphore);

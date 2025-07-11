@@ -35,8 +35,14 @@ func installSystemExtension(bundleID string) error {
 		switch result {
 		case -2:
 			return fmt.Errorf("installation timed out. The system may be prompting for approval.\n\nCheck System Preferences > Privacy & Security")
+		case 1:
+			return fmt.Errorf("extension bundle not found.\n\nMake sure to:\n1. Build the app bundle: ./build-app-bundle.sh\n2. Run from the app bundle: DNShield.app/Contents/MacOS/dnshield")
+		case 4:
+			return fmt.Errorf("authorization required.\n\nApprove the extension in:\nSystem Preferences > Privacy & Security")
+		case 8:
+			return fmt.Errorf("invalid signature.\n\nThe extension needs to be signed with a valid Developer ID")
 		default:
-			return fmt.Errorf("installation failed (code: %d).\n\nCommon issues:\n- Extension bundle not signed properly\n- Missing entitlements\n- User denied installation", result)
+			return fmt.Errorf("installation failed (code: %d).\n\nCheck Console.app for detailed error messages", result)
 		}
 	}
 	return nil

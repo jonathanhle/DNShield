@@ -20,6 +20,12 @@
     <key>com.apple.developer.system-extension.install</key>
     <true/>
     
+    <!-- Network Extension capabilities -->
+    <key>com.apple.developer.networking.networkextension</key>
+    <array>
+        <string>dns-proxy</string>
+    </array>
+    
     <!-- Required for notarization -->
     <key>com.apple.security.app-sandbox</key>
     <false/>
