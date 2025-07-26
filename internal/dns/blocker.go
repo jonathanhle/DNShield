@@ -3,6 +3,8 @@ package dns
 import (
 	"strings"
 	"sync"
+	
+	"dnshield/internal/security"
 )
 
 // Blocker manages domain blocking
@@ -55,9 +57,10 @@ func (b *Blocker) UpdateWhitelist(domains []string) {
 // domains against the blocklist while respecting whitelist entries.
 //
 // The lookup order is:
-//  1. Check whitelist (if whitelisted, never block)
-//  2. Check exact domain match in blocklist
-//  3. Check parent domains (e.g., sub.example.com checks example.com)
+//  1. Check if domain is a captive portal detection domain (never block)
+//  2. Check whitelist (if whitelisted, never block)
+//  3. Check exact domain match in blocklist
+//  4. Check parent domains (e.g., sub.example.com checks example.com)
 //
 // Example:
 //
@@ -70,7 +73,12 @@ func (b *Blocker) IsBlocked(domain string) bool {
 
 	domain = strings.ToLower(domain)
 
-	// Check whitelist first
+	// Never block captive portal detection domains
+	if security.IsCaptivePortalDomain(domain) {
+		return false
+	}
+
+	// Check whitelist
 	if b.whitelist[domain] {
 		return false
 	}

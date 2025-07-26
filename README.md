@@ -30,6 +30,7 @@ DNShield is a lightweight, single-binary DNS filtering solution that provides tr
 - **🔐 Privacy First**: All filtering happens locally on the device
 - **⚡ High Performance**: Written in Go with built-in caching
 - **🍎 Native macOS**: Touch ID support, System Keychain integration
+- **✈️ Captive Portal Support**: Automatic detection and bypass for airport/hotel WiFi
 
 ## 🚀 Quick Start
 
@@ -514,6 +515,11 @@ dnshield/
 
 **Certificate warnings still appear**
 - Ensure CA is installed: `./dnshield install-ca`
+
+**Captive portals not working (airport/hotel WiFi)**
+- DNShield automatically detects and bypasses captive portals
+- See [Captive Portal Support](docs/CAPTIVE_PORTALS.md) for details
+- Manual bypass: `sudo ./dnshield bypass enable`
 - Check Keychain Access for "DNShield" certificate
 - Clear browser cache or use incognito mode
 
