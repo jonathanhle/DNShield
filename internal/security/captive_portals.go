@@ -24,6 +24,9 @@ var CaptivePortalDomains = map[string]bool{
 	"www.google.com":                    true, // Android fallback
 	"clients3.google.com":               true,
 	"clients.l.google.com":              true,
+	"clients4.google.com":               true,
+	"android.clients.google.com":        true,
+	"www.androidbak.net":                true,
 	
 	// Firefox
 	"detectportal.firefox.com": true,
@@ -128,6 +131,11 @@ var CaptivePortalDomains = map[string]bool{
 	"secure.guestinternet.com": true,
 	"attwifi.com":            true,
 	"mywifi.attwifi.com":     true,
+	"securelogin.arubanetworks.com": true, // Aruba Networks - common for hotels/enterprise
+	
+	// Public WiFi Providers
+	"captive-portal.selectwifi.xfinity.com": true, // Xfinity WiFi
+	"d2uzsrnmmf6tds.cloudfront.net":         true, // CloudFront CDN
 	
 	// Generic Captive Portal Detection
 	"hotspot-detect.html":    true,
@@ -162,6 +170,9 @@ var CaptivePortalParentDomains = map[string]bool{
 	
 	// Hotel WiFi
 	"attwifi.com": true,
+	
+	// Public WiFi Providers
+	"selectwifi.xfinity.com": true, // Xfinity WiFi
 }
 
 // IsCaptivePortalDomain checks if a domain is used for captive portal detection

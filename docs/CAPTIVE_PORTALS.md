@@ -10,7 +10,7 @@ DNShield automatically detects when your device is trying to connect through a c
 #### Operating System Detection Domains
 - **Apple**: captive.apple.com, mask.icloud.com
 - **Windows**: www.msftconnecttest.com, msftncsi.com  
-- **Android**: connectivitycheck.gstatic.com
+- **Android**: connectivitycheck.gstatic.com, android.clients.google.com
 - **Firefox**: detectportal.firefox.com
 
 #### Airline WiFi Providers
@@ -29,10 +29,11 @@ DNShield automatically detects when your device is trying to connect through a c
 - **Panera Bread**: wifi.panerabread.com
 
 #### Hotels & Public WiFi
-- **Hotel WiFi**: secure.guestinternet.com, *.attwifi.com
+- **Hotel WiFi**: secure.guestinternet.com, *.attwifi.com, securelogin.arubanetworks.com
+- **Public WiFi Providers**: *.selectwifi.xfinity.com (Xfinity WiFi)
 - **Generic**: neverssl.com, example.com
 
-And many others (100+ domains total)
+And many others (110+ domains total)
 
 When DNShield detects multiple requests to these domains within a short time window (indicating a captive portal login attempt), it automatically enters **bypass mode**.
 
