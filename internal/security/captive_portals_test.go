@@ -20,6 +20,11 @@ func TestIsCaptivePortalDomain(t *testing.T) {
 		{"www.androidbak.net", true},
 		{"captive-portal.selectwifi.xfinity.com", true},
 		{"securelogin.arubanetworks.com", true},
+		{"amtrakconnect.com", true},
+		{"marriott.com", true},
+		{"hotelwifi.com", true},
+		{"via.boingohotspot.net", true},
+		{"guestwifi.united.com", true},
 		
 		// Subdomain matches
 		{"auth.gogoinflight.com", true},
@@ -28,6 +33,8 @@ func TestIsCaptivePortalDomain(t *testing.T) {
 		{"portal.attwifi.com", true},
 		{"subdomain.unitedwifi.com", true},
 		{"login.selectwifi.xfinity.com", true}, // Xfinity subdomain
+		{"auth.boingohotspot.net", true}, // Boingo subdomain
+		{"login.selectnetworx.com", true}, // Selectnetworx subdomain
 		
 		// Non-captive portal domains
 		{"facebook.com", false},

@@ -107,9 +107,11 @@ var CaptivePortalDomains = map[string]bool{
 	"wifi.delta.com":         true,
 	"unitedwifi.com":         true,
 	"wifi.united.com":        true,
+	"guestwifi.united.com":   true, // United guest WiFi
 	"aainflight.com":         true,
 	"southwestwifi.com":      true,
 	"alaskawifi.com":         true,
+	"amtrakconnect.com":      true, // Amtrak trains
 	
 	// International Airlines
 	"lufthansa-flynet.com":   true,
@@ -128,14 +130,26 @@ var CaptivePortalDomains = map[string]bool{
 	"iportal.panerabread.com": true,
 	
 	// Hotel WiFi Providers
-	"secure.guestinternet.com": true,
+	"secure.guestinternet.com": true, // Hilton
 	"attwifi.com":            true,
 	"mywifi.attwifi.com":     true,
 	"securelogin.arubanetworks.com": true, // Aruba Networks - common for hotels/enterprise
+	"snap.selectnetworx.com": true, // Hilton Dana Point
+	"globalsuite.net":        true, // Hyatt Hotels
+	"bap.aws.opennetworkexchange.net": true, // Hyatt Hotels
+	"marriott.com":           true, // Marriott Hotels
+	"cloud5.com":             true, // Marriott Hotels
+	"splash.skyadmin.io":     true, // Montage Hotels
+	"hotelwifi.com":          true, // Multiple Hotels
+	"registerforhsia.com":    true, // Multiple Hotels
+	"danmagi.com":            true, // Multiple Hotels
+	"redwoodsystemsgroup.com": true, // Multiple Hotels
 	
 	// Public WiFi Providers
 	"captive-portal.selectwifi.xfinity.com": true, // Xfinity WiFi
 	"d2uzsrnmmf6tds.cloudfront.net":         true, // CloudFront CDN
+	"via.boingohotspot.net":   true, // Boingo - airports and multiple airlines
+	"login.yyc.com":           true, // Calgary Airport
 	
 	// Generic Captive Portal Detection
 	"hotspot-detect.html":    true,
@@ -173,6 +187,11 @@ var CaptivePortalParentDomains = map[string]bool{
 	
 	// Public WiFi Providers
 	"selectwifi.xfinity.com": true, // Xfinity WiFi
+	"boingohotspot.net": true, // Boingo - airports and multiple airlines
+	"yyc.com": true, // Calgary Airport
+	"selectnetworx.com": true, // Hilton Dana Point
+	"opennetworkexchange.net": true, // Hyatt Hotels
+	"skyadmin.io": true, // Montage Hotels
 }
 
 // IsCaptivePortalDomain checks if a domain is used for captive portal detection

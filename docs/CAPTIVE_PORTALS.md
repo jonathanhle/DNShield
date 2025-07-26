@@ -23,17 +23,25 @@ DNShield automatically detects when your device is trying to connect through a c
 #### Airline-Specific Domains
 - **US Airlines**: *.deltawifi.com, *.unitedwifi.com, *.aainflight.com, *.southwestwifi.com, *.alaskawifi.com
 - **International**: *.lufthansa-flynet.com, *.airfrance.com, shop.ba.com
+- **Ground Transportation**: amtrakconnect.com (Amtrak)
+- **Airport WiFi**: *.boingohotspot.net (Boingo - multiple airlines), *.yyc.com (Calgary Airport)
 
 #### Coffee Shops & Restaurants
 - **Starbucks**: sbux-portal.globalreachtech.com, secure.datavalet.io
 - **Panera Bread**: wifi.panerabread.com
 
 #### Hotels & Public WiFi
-- **Hotel WiFi**: secure.guestinternet.com, *.attwifi.com, securelogin.arubanetworks.com
+- **Hilton**: secure.guestinternet.com, *.selectnetworx.com
+- **Hyatt**: globalsuite.net, *.opennetworkexchange.net
+- **Marriott**: marriott.com, cloud5.com
+- **Montage**: *.skyadmin.io
+- **Generic Hotel WiFi**: hotelwifi.com, registerforhsia.com, danmagi.com, redwoodsystemsgroup.com
+- **AT&T WiFi**: *.attwifi.com (common in hotels/airports)
+- **Aruba Networks**: securelogin.arubanetworks.com
 - **Public WiFi Providers**: *.selectwifi.xfinity.com (Xfinity WiFi)
 - **Generic**: neverssl.com, example.com
 
-And many others (110+ domains total)
+And many others (125+ domains total)
 
 When DNShield detects multiple requests to these domains within a short time window (indicating a captive portal login attempt), it automatically enters **bypass mode**.
 
