@@ -61,17 +61,47 @@ The default 5-minute bypass window should be sufficient for most captive portals
 sudo ./dnshield bypass enable --duration 15m
 ```
 
+## Configuration
+
+You can customize captive portal behavior in your `config.yaml`:
+
+```yaml
+captivePortal:
+  enabled: true                    # Enable/disable automatic detection
+  detectionThreshold: 3            # Number of unique captive portal domains to trigger bypass
+  detectionWindow: "10s"           # Time window for detection
+  bypassDuration: "5m"             # How long to disable filtering
+  additionalDomains:               # Add custom captive portal domains
+    - "custom-portal.company.com"
+    - "wifi.hotel-chain.com"
+```
+
 ## Technical Details
 
 ### Detection Algorithm
 - Monitors DNS requests for known captive portal domains
-- Triggers bypass when 3+ different captive portal domains are queried within 10 seconds
+- Triggers bypass when configured threshold of different captive portal domains are queried within the detection window
 - Automatically clears counters after bypass is enabled
+- Includes comprehensive domain list covering all major operating systems and browsers
+
+### Known Limitations
+
+#### Multi-Stage Captive Portals
+Some captive portals use a multi-stage authentication process where users are redirected through multiple networks during login. DNShield may not automatically detect all stages of these complex portals. 
+
+**Workaround**: Use manual bypass mode (`sudo ./dnshield bypass enable`) when encountering multi-stage portals.
+
+#### DNS-Intercepting Portals
+Some captive portals intercept ALL DNS traffic, which can interfere with DNShield's operation entirely. These portals may require manual intervention.
+
+#### HTTPS-Only Networks
+Networks that only allow HTTPS traffic may block DNShield's standard DNS queries on port 53.
 
 ### Security Considerations
 - Bypass mode only affects DNS filtering - your HTTPS connections remain secure
 - The CA certificate and HTTPS proxy continue to function normally
 - Only DNS blocking is temporarily disabled
+- Each captive portal access is logged for security auditing
 
 ### Comparison with Other Solutions
 

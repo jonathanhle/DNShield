@@ -5,40 +5,60 @@ import (
 	"time"
 	
 	"github.com/sirupsen/logrus"
+	"dnshield/internal/config"
 	"dnshield/internal/security"
 )
 
 // CaptivePortalDetector tracks requests to captive portal domains
 // to detect when a device is trying to connect through a captive portal
 type CaptivePortalDetector struct {
-	mu              sync.RWMutex
-	requestCounts   map[string]int
-	lastRequestTime map[string]time.Time
-	bypassMode      bool
-	bypassUntil     time.Time
-	threshold       int
-	timeWindow      time.Duration
-	bypassDuration  time.Duration
+	mu                sync.RWMutex
+	requestCounts     map[string]int
+	lastRequestTime   map[string]time.Time
+	bypassMode        bool
+	bypassUntil       time.Time
+	enabled           bool
+	threshold         int
+	timeWindow        time.Duration
+	bypassDuration    time.Duration
+	additionalDomains []string
 }
 
 // NewCaptivePortalDetector creates a new captive portal detector
-func NewCaptivePortalDetector() *CaptivePortalDetector {
+func NewCaptivePortalDetector(cfg *config.CaptivePortalConfig) *CaptivePortalDetector {
+	// If no config provided, use defaults
+	if cfg == nil {
+		cfg = &config.CaptivePortalConfig{
+			Enabled:            true,
+			DetectionThreshold: 3,
+			DetectionWindow:    10 * time.Second,
+			BypassDuration:     5 * time.Minute,
+		}
+	}
+	
 	return &CaptivePortalDetector{
-		requestCounts:   make(map[string]int),
-		lastRequestTime: make(map[string]time.Time),
-		threshold:       3,                     // 3 requests to different captive portal domains
-		timeWindow:      10 * time.Second,      // within 10 seconds
-		bypassDuration:  5 * time.Minute,       // bypass for 5 minutes
+		requestCounts:     make(map[string]int),
+		lastRequestTime:   make(map[string]time.Time),
+		enabled:           cfg.Enabled,
+		threshold:         cfg.DetectionThreshold,
+		timeWindow:        cfg.DetectionWindow,
+		bypassDuration:    cfg.BypassDuration,
+		additionalDomains: cfg.AdditionalDomains,
 	}
 }
 
 // RecordRequest records a DNS request and checks if captive portal bypass should be activated
 func (c *CaptivePortalDetector) RecordRequest(domain string) {
+	// Skip if detection is disabled
+	if !c.enabled {
+		return
+	}
+	
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Check if this is a captive portal domain
-	if !security.IsCaptivePortalDomain(domain) {
+	// Check if this is a captive portal domain (including additional domains)
+	if !security.IsCaptivePortalDomainWithAdditional(domain, c.additionalDomains) {
 		return
 	}
 
@@ -56,10 +76,22 @@ func (c *CaptivePortalDetector) RecordRequest(domain string) {
 	c.requestCounts[domain]++
 	c.lastRequestTime[domain] = now
 
+	// Log captive portal domain access for diagnostics
+	logrus.WithFields(logrus.Fields{
+		"domain":       domain,
+		"count":        c.requestCounts[domain],
+		"unique_count": len(c.requestCounts),
+		"threshold":    c.threshold,
+	}).Debug("Captive portal domain accessed")
+
 	// Check if we've hit the threshold
 	uniqueDomains := len(c.requestCounts)
 	if uniqueDomains >= c.threshold && !c.bypassMode {
-		logrus.Info("Captive portal detected - enabling bypass mode")
+		logrus.WithFields(logrus.Fields{
+			"unique_domains": uniqueDomains,
+			"threshold":      c.threshold,
+			"duration":       c.bypassDuration,
+		}).Info("Captive portal detected - enabling bypass mode")
 		c.EnableBypass()
 	}
 }

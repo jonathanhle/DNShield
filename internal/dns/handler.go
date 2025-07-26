@@ -7,6 +7,7 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
+	"dnshield/internal/config"
 )
 
 // Handler handles DNS queries
@@ -19,7 +20,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new DNS handler
-func NewHandler(blocker *Blocker, upstreams []string, blockIP string) *Handler {
+func NewHandler(blocker *Blocker, upstreams []string, blockIP string, captivePortalCfg *config.CaptivePortalConfig) *Handler {
 	ip := net.ParseIP(blockIP)
 	if ip == nil {
 		ip = net.ParseIP("127.0.0.1")
@@ -30,7 +31,7 @@ func NewHandler(blocker *Blocker, upstreams []string, blockIP string) *Handler {
 		upstreams:       upstreams,
 		blockIP:         ip,
 		cache:           NewCache(10000, 1*time.Hour),
-		captiveDetector: NewCaptivePortalDetector(),
+		captiveDetector: NewCaptivePortalDetector(captivePortalCfg),
 	}
 }
 

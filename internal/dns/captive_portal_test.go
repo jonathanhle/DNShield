@@ -3,10 +3,12 @@ package dns
 import (
 	"testing"
 	"time"
+	
+	"dnshield/internal/config"
 )
 
 func TestCaptivePortalDetector(t *testing.T) {
-	detector := NewCaptivePortalDetector()
+	detector := NewCaptivePortalDetector(nil) // Uses defaults
 
 	// Test that non-captive portal domains don't trigger bypass
 	detector.RecordRequest("example.com")
@@ -63,5 +65,54 @@ func TestCaptivePortalDomainList(t *testing.T) {
 		if blocker.IsBlocked(domain) {
 			t.Errorf("Captive portal domain %s should never be blocked", domain)
 		}
+	}
+}
+
+func TestCaptivePortalDetectorWithConfig(t *testing.T) {
+	// Test with custom configuration
+	cfg := &config.CaptivePortalConfig{
+		Enabled:            true,
+		DetectionThreshold: 2,      // Lower threshold
+		DetectionWindow:    5 * time.Second,
+		BypassDuration:     2 * time.Minute,
+		AdditionalDomains:  []string{"custom-portal.test"},
+	}
+	
+	detector := NewCaptivePortalDetector(cfg)
+	
+	// Test that custom domain is recognized
+	detector.RecordRequest("custom-portal.test")
+	detector.RecordRequest("captive.apple.com")
+	
+	// Should trigger with just 2 domains due to custom threshold
+	if !detector.IsInBypassMode() {
+		t.Error("Bypass mode should be enabled with custom threshold of 2")
+	}
+	
+	// Test bypass duration
+	inBypass, remaining := detector.GetBypassStatus()
+	if !inBypass {
+		t.Error("Should be in bypass mode")
+	}
+	if remaining > 2*time.Minute {
+		t.Errorf("Bypass duration should be 2 minutes, got: %v", remaining)
+	}
+}
+
+func TestCaptivePortalDetectorDisabled(t *testing.T) {
+	// Test with detection disabled
+	cfg := &config.CaptivePortalConfig{
+		Enabled: false,
+	}
+	
+	detector := NewCaptivePortalDetector(cfg)
+	
+	// Even with captive portal domains, should not trigger
+	detector.RecordRequest("captive.apple.com")
+	detector.RecordRequest("connectivitycheck.gstatic.com")
+	detector.RecordRequest("detectportal.firefox.com")
+	
+	if detector.IsInBypassMode() {
+		t.Error("Bypass mode should not be enabled when detection is disabled")
 	}
 }
