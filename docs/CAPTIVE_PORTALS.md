@@ -27,8 +27,11 @@ DNShield automatically detects when your device is trying to connect through a c
 - **Airport WiFi**: *.boingohotspot.net (Boingo - multiple airlines), *.yyc.com (Calgary Airport)
 
 #### Coffee Shops & Restaurants
-- **Starbucks**: sbux-portal.globalreachtech.com, secure.datavalet.io
-- **Panera Bread**: wifi.panerabread.com
+- **Starbucks**: sbux-portal.globalreachtech.com, secure.datavalet.io, sbux-portal.appspot.com, aruba.odyssys.net
+- **Panera Bread**: wifi.panerabread.com, iportal.panerabread.com
+- **Tim Hortons**: timhortonswifi.com
+- **McDonald's (McCafé)**: captive.o2wifi.co.uk (UK/Europe)
+- **Gloria Jean's**: customer.hotspotsystem.com (Australia)
 
 #### Hotels & Public WiFi
 - **Hilton**: secure.guestinternet.com, *.selectnetworx.com
@@ -41,7 +44,7 @@ DNShield automatically detects when your device is trying to connect through a c
 - **Public WiFi Providers**: *.selectwifi.xfinity.com (Xfinity WiFi)
 - **Generic**: neverssl.com, example.com
 
-And many others (125+ domains total)
+And many others (140+ domains total)
 
 When DNShield detects multiple requests to these domains within a short time window (indicating a captive portal login attempt), it automatically enters **bypass mode**.
 

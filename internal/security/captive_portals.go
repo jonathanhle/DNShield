@@ -129,6 +129,17 @@ var CaptivePortalDomains = map[string]bool{
 	"wifi.panerabread.com":   true,
 	"iportal.panerabread.com": true,
 	
+	// Coffee Shops - Tim Hortons
+	"timhortonswifi.com":     true,
+	
+	// Coffee Shops - McDonald's (McCafé)
+	"captive.o2wifi.co.uk":   true, // McDonald's UK/Europe
+	
+	// Coffee Shops - Gloria Jean's (Australia)
+	"customer.hotspotsystem.com": true,
+	"radius.hotspotsystem.com":   true,
+	"radius2.hotspotsystem.com":  true,
+	
 	// Hotel WiFi Providers
 	"secure.guestinternet.com": true, // Hilton
 	"attwifi.com":            true,
@@ -192,6 +203,15 @@ var CaptivePortalParentDomains = map[string]bool{
 	"selectnetworx.com": true, // Hilton Dana Point
 	"opennetworkexchange.net": true, // Hyatt Hotels
 	"skyadmin.io": true, // Montage Hotels
+	
+	// Coffee Shop WiFi
+	"hotspotsystem.com": true, // Gloria Jean's and other coffee shops
+	"o2wifi.co.uk": true, // McDonald's UK/Europe and other O2 WiFi locations
+	"timhortonswifi.com": true, // Tim Hortons
+	"sbux-portal.appspot.com": true, // Starbucks
+	"sbux-portal.globalreachtech.com": true, // Starbucks
+	"datavalet.io": true, // Starbucks and other venues
+	"odyssys.net": true, // Aruba authentication
 }
 
 // IsCaptivePortalDomain checks if a domain is used for captive portal detection
