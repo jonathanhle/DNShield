@@ -59,6 +59,20 @@ func TestCaptivePortalDomainList(t *testing.T) {
 		"connectivitycheck.gstatic.com",
 		"detectportal.firefox.com",
 		"www.msftconnecttest.com",
+		// Test new airline domains
+		"gogoinflight.com",
+		"wifi.gogoinflight.com",
+		"captive.gogoinflight.com",
+		"auth.gogoinflight.com", // subdomain test
+		"deltawifi.com",
+		"wifi.delta.com",
+		// Test coffee shop domains
+		"wifi.panerabread.com",
+		"sbux-portal.globalreachtech.com",
+		// Test hotel domains
+		"secure.guestinternet.com",
+		"attwifi.com",
+		"login.attwifi.com", // subdomain test
 	}
 
 	for _, domain := range testDomains {

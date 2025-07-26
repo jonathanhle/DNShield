@@ -7,11 +7,32 @@ DNShield includes automatic captive portal detection and bypass functionality to
 ### Automatic Detection
 DNShield automatically detects when your device is trying to connect through a captive portal by monitoring requests to known captive portal detection domains used by various operating systems:
 
+#### Operating System Detection Domains
 - **Apple**: captive.apple.com, mask.icloud.com
 - **Windows**: www.msftconnecttest.com, msftncsi.com  
 - **Android**: connectivitycheck.gstatic.com
 - **Firefox**: detectportal.firefox.com
-- And many others
+
+#### Airline WiFi Providers
+- **Gogo**: *.gogoinflight.com, *.gogoinair.com
+- **Viasat**: *.viasat.com, inflight.viasat.com
+- **WiFi Onboard**: *.inflightinternet.com, *.wifionboard.com
+- **Panasonic Avionics**: *.panasonic.aero
+- **Others**: *.wifilauncher.com, *.flyfi.com, *.inflight-wifi.com
+
+#### Airline-Specific Domains
+- **US Airlines**: *.deltawifi.com, *.unitedwifi.com, *.aainflight.com, *.southwestwifi.com, *.alaskawifi.com
+- **International**: *.lufthansa-flynet.com, *.airfrance.com, shop.ba.com
+
+#### Coffee Shops & Restaurants
+- **Starbucks**: sbux-portal.globalreachtech.com, secure.datavalet.io
+- **Panera Bread**: wifi.panerabread.com
+
+#### Hotels & Public WiFi
+- **Hotel WiFi**: secure.guestinternet.com, *.attwifi.com
+- **Generic**: neverssl.com, example.com
+
+And many others (100+ domains total)
 
 When DNShield detects multiple requests to these domains within a short time window (indicating a captive portal login attempt), it automatically enters **bypass mode**.
 

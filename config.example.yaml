@@ -55,8 +55,12 @@ captivePortal:
   # Additional captive portal domains (beyond built-in list)
   # Use this to add custom domains for specific networks
   additionalDomains: []
-  # - "wifi.mycompany.com"
-  # - "portal.hotel-chain.com"
+  # Examples:
+  # - "wifi.mycompany.com"         # Corporate WiFi portal
+  # - "portal.hotel-chain.com"     # Specific hotel chain
+  # - "jetblue.com"               # Airlines not in default list
+  # - "portal.trainline.com"      # Train/transit WiFi
+  # - "auth.mcdonaldswifi.com"    # Restaurant chains
 
 # Test domains (remove in production)
 # These domains will be blocked for testing
