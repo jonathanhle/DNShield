@@ -1,0 +1,37 @@
+version: "2024.01.15"
+description: "Maps users to policy groups"
+
+group_assignments:
+  marketing:
+    - john.doe@company.com
+    - jane.smith@company.com
+    - alice.wilson@company.com
+    - "*@marketing.company.com"  # Anyone with marketing email domain
+  
+  engineering:
+    - sarah.smith@company.com
+    - bob.jones@company.com
+    - engineering-shared@company.com  # Lab machines
+    - "*@eng.company.com"
+    - "*@dev.company.com"
+  
+  finance:
+    - "*@finance.company.com"
+    - "*@accounting.company.com"
+  
+  executives:
+    - ceo@company.com
+    - cto@company.com
+    - cfo@company.com
+    - "*@exec.company.com"
+  
+  restricted:  # Most restrictive access
+    - shared-device@company.com  # Conference rooms, kiosks
+
+# Direct user assignments (override group assignments)
+user_overrides:
+  contractor1@external.com: restricted
+  contractor2@external.com: restricted
+  intern1@company.com: restricted
+  intern2@company.com: restricted
+  temp.worker@staffing.com: restricted

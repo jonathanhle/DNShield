@@ -1,0 +1,42 @@
+version: "2024.01.15"
+description: "Maps users to their devices"
+
+users:
+  john.doe@company.com:
+    devices:
+      - "Johns-MacBook-Pro"
+      - "johns-imac"
+      - "john-test-laptop"
+    
+  sarah.smith@company.com:
+    devices:
+      - "Sarah-MBP-16"
+      - "sarah-mac-mini"
+  
+  bob.jones@company.com:
+    devices:
+      - "Bob-MacBook-Air"
+      - "bob-home-mac"
+      - "bob-lab-machine"
+  
+  alice.wilson@company.com:
+    devices:
+      - "alice-macbook"
+      - "alice-desktop"
+  
+  # Shared devices
+  shared-device@company.com:
+    devices:
+      - "conference-room-1"
+      - "conference-room-2"
+      - "lobby-kiosk"
+      - "reception-mac"
+  
+  # Engineering lab machines
+  engineering-shared@company.com:
+    devices:
+      - "lab-mac-01"
+      - "lab-mac-02"
+      - "lab-mac-03"
+      - "build-server-mac"
+      - "test-automation-01"

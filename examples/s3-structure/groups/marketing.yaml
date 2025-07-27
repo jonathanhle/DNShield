@@ -1,0 +1,26 @@
+version: "2024.01.15"
+description: "Additional rules for marketing team"
+
+allow_domains:  # Marketing needs social media access
+  - facebook.com
+  - twitter.com
+  - instagram.com
+  - linkedin.com
+  - youtube.com
+  - tiktok.com
+  - pinterest.com
+  - reddit.com
+  # Marketing tools
+  - buffer.com
+  - hootsuite.com
+  - canva.com
+  - mailchimp.com
+  - hubspot.com
+  - salesforce.com
+  - marketo.com
+  - sproutsocial.com
+
+block_domains:  # Additional blocks for marketing
+  - gambling-site.com
+  - adult-content.com
+  - torrent-site.com

@@ -9,15 +9,19 @@ import (
 type Blocker struct {
 	mu             sync.RWMutex
 	blockedDomains map[string]bool
-	whitelist      map[string]bool
+	allowlist      map[string]bool // Renamed from whitelist
+
+	// Track metadata for logging
+	userEmail string
+	groupName string
 }
 
 // NewBlocker creates a new domain blocker instance.
-// The blocker maintains thread-safe maps of blocked domains and whitelist entries.
+// The blocker maintains thread-safe maps of blocked domains and allowlist entries.
 func NewBlocker() *Blocker {
 	return &Blocker{
 		blockedDomains: make(map[string]bool),
-		whitelist:      make(map[string]bool),
+		allowlist:      make(map[string]bool),
 	}
 }
 
@@ -36,18 +40,26 @@ func (b *Blocker) UpdateDomains(domains []string) {
 	}
 }
 
-// UpdateWhitelist updates the whitelist
-func (b *Blocker) UpdateWhitelist(domains []string) {
+// UpdateAllowlist updates the allowlist
+func (b *Blocker) UpdateAllowlist(domains []string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.whitelist = make(map[string]bool)
+	b.allowlist = make(map[string]bool)
 	for _, domain := range domains {
 		domain = strings.ToLower(strings.TrimSpace(domain))
 		if domain != "" {
-			b.whitelist[domain] = true
+			b.allowlist[domain] = true
 		}
 	}
+}
+
+// UpdateMetadata updates user and group information for logging
+func (b *Blocker) UpdateMetadata(userEmail, groupName string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.userEmail = userEmail
+	b.groupName = groupName
 }
 
 // IsBlocked checks if a domain should be blocked based on configured rules.
@@ -55,7 +67,7 @@ func (b *Blocker) UpdateWhitelist(domains []string) {
 // domains against the blocklist while respecting whitelist entries.
 //
 // The lookup order is:
-//  1. Check whitelist (if whitelisted, never block)
+//  1. Check allowlist (if allowed, never block)
 //  2. Check exact domain match in blocklist
 //  3. Check parent domains (e.g., sub.example.com checks example.com)
 //
@@ -70,9 +82,18 @@ func (b *Blocker) IsBlocked(domain string) bool {
 
 	domain = strings.ToLower(domain)
 
-	// Check whitelist first
-	if b.whitelist[domain] {
+	// Check allowlist first (allowlist always wins)
+	if b.allowlist[domain] {
 		return false
+	}
+
+	// Also check parent domains in allowlist
+	parts := strings.Split(domain, ".")
+	for i := 1; i < len(parts); i++ {
+		parent := strings.Join(parts[i:], ".")
+		if b.allowlist[parent] {
+			return false
+		}
 	}
 
 	// Check exact match
@@ -80,8 +101,8 @@ func (b *Blocker) IsBlocked(domain string) bool {
 		return true
 	}
 
-	// Check parent domains (e.g., subdomain.example.com → example.com)
-	parts := strings.Split(domain, ".")
+	// Check parent domains in blocklist (e.g., subdomain.example.com → example.com)
+	// Note: we already checked allowlist parent domains above
 	for i := 1; i < len(parts); i++ {
 		parent := strings.Join(parts[i:], ".")
 		if b.blockedDomains[parent] {
@@ -97,4 +118,18 @@ func (b *Blocker) GetBlockedCount() int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	return len(b.blockedDomains)
+}
+
+// GetAllowlistCount returns the number of allowed domains
+func (b *Blocker) GetAllowlistCount() int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return len(b.allowlist)
+}
+
+// GetMetadata returns the current user and group for logging
+func (b *Blocker) GetMetadata() (userEmail, groupName string) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.userEmail, b.groupName
 }

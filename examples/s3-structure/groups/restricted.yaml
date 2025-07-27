@@ -1,0 +1,34 @@
+version: "2024.01.15"
+description: "Restricted access for contractors, interns, and shared devices"
+
+# No additional allow_domains - only what's in base.yaml
+
+block_domains:  # Extra restrictions
+  - slack.com
+  - discord.com
+  - telegram.org
+  - whatsapp.com
+  - zoom.us
+  - dropbox.com
+  - drive.google.com
+  - onedrive.com
+  - box.com
+  - wetransfer.com
+  - mega.nz
+  # Social media (ensure blocked)
+  - linkedin.com
+  - youtube.com
+  - vimeo.com
+  - twitch.tv
+  # News/entertainment
+  - reddit.com
+  - news.ycombinator.com
+  - medium.com
+  - netflix.com
+  - hulu.com
+  - spotify.com
+  - pandora.com
+
+# Use more aggressive blocklists
+block_sources:
+  - https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn-social/hosts
