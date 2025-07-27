@@ -10,12 +10,14 @@ var CaptivePortalDomains = map[string]bool{
 	"captive.apple.com":     true,
 	"mask.icloud.com":       true,
 	"mask-h2.icloud.com":    true,
+	"gsp64-ssl.ls.apple.com": true,
 	
 	// Windows
 	"www.msftconnecttest.com": true,
 	"msftncsi.com":           true,
 	"www.msftncsi.com":       true,
 	"ipv6.msftncsi.com":      true,
+	"dns.msftncsi.com":       true,
 	
 	// Android
 	"connectivitycheck.gstatic.com":     true,
@@ -216,6 +218,9 @@ var CaptivePortalParentDomains = map[string]bool{
 
 // IsCaptivePortalDomain checks if a domain is used for captive portal detection
 func IsCaptivePortalDomain(domain string) bool {
+	// DNS is case-insensitive
+	domain = strings.ToLower(domain)
+	
 	// Check exact match first
 	if CaptivePortalDomains[domain] {
 		return true
@@ -239,8 +244,12 @@ func IsCaptivePortalDomainWithAdditional(domain string, additionalDomains []stri
 		return true
 	}
 	
+	// DNS is case-insensitive
+	domain = strings.ToLower(domain)
+	
 	// Check additional domains from config
 	for _, d := range additionalDomains {
+		d = strings.ToLower(d)
 		if d == domain || strings.HasSuffix(domain, "."+d) {
 			return true
 		}

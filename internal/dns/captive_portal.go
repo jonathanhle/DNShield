@@ -87,12 +87,19 @@ func (c *CaptivePortalDetector) RecordRequest(domain string) {
 	// Check if we've hit the threshold
 	uniqueDomains := len(c.requestCounts)
 	if uniqueDomains >= c.threshold && !c.bypassMode {
+		// Set bypass mode here while we have the lock
+		c.bypassMode = true
+		c.bypassUntil = time.Now().Add(c.bypassDuration)
+		
+		// Clear counters
+		c.requestCounts = make(map[string]int)
+		c.lastRequestTime = make(map[string]time.Time)
+		
 		logrus.WithFields(logrus.Fields{
 			"unique_domains": uniqueDomains,
 			"threshold":      c.threshold,
 			"duration":       c.bypassDuration,
 		}).Info("Captive portal detected - enabling bypass mode")
-		c.EnableBypass()
 	}
 }
 
