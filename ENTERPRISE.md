@@ -133,6 +133,64 @@ allow_domains:  # Marketing needs social media
   - linkedin.com
 ```
 
+## Allow-Only Mode (High Security)
+
+For highly restricted environments, you can enable "allow-only mode" where EVERYTHING is blocked except explicitly allowed domains.
+
+### Use Cases
+- Kiosk computers
+- Contractor workstations  
+- Public terminals
+- High-security environments
+- Compliance requirements (PCI, HIPAA)
+
+### Configuration
+
+Enable in any rules file:
+```yaml
+version: "2024.01.15"
+description: "Restricted access - Allow-only mode"
+
+# This enables allow-only mode
+allow_only_mode: true
+
+# ONLY these domains are accessible
+allow_domains:
+  - company-portal.com
+  - timesheet.company.com
+  - wiki.company.com
+  - google.com  # For search only
+  
+# In allow-only mode, these are ignored:
+block_domains: []     # Ignored
+block_sources: []     # Ignored
+```
+
+### How It Works
+1. When `allow_only_mode: true` is set in ANY applicable rule file (base, group, or user)
+2. The system blocks ALL domains except those in `allow_domains`
+3. Allowlists are merged from all sources (base + group + user)
+4. External blocklists are NOT downloaded to save bandwidth
+
+### Example: Restricted Group
+```yaml
+# groups/restricted.yaml
+version: "2024.01.15"
+description: "Contractors and kiosks - Maximum restrictions"
+
+allow_only_mode: true
+
+allow_domains:
+  # Work tools only
+  - jira.company.com
+  - github.com
+  - stackoverflow.com
+  
+  # Essential services
+  - google.com
+  - wikipedia.org
+```
+
 ## Deployment
 
 ### 1. Test Configuration Locally
@@ -213,6 +271,15 @@ grep "Device not found in mapping" /var/log/dnshield.log
 ### Rule Updates
 ```bash
 grep "Enterprise rules updated" /var/log/dnshield.log
+```
+
+### Allow-Only Mode
+```bash
+# See which users/groups are in allow-only mode
+grep "mode=allow-only" /var/log/dnshield.log
+
+# Example log output:
+# INFO Enterprise rules updated blocked=1000 allowed=25 user=contractor1@external.com group=restricted mode=allow-only
 ```
 
 ## Troubleshooting

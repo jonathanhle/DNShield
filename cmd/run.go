@@ -222,19 +222,21 @@ func updateEnterpriseRules(fetcher *rules.EnterpriseFetcher, parser *rules.Parse
 	blocker.UpdateMetadata(enterpriseRules.UserEmail, enterpriseRules.GroupName)
 
 	// Merge rules according to precedence
-	blockDomains, allowDomains := enterpriseRules.MergeRules()
+	blockDomains, allowDomains, allowOnlyMode := enterpriseRules.MergeRules()
 
 	// Get external block sources
 	blockSources := enterpriseRules.GetBlockSources()
 
-	// Fetch and parse external sources
-	for _, source := range blockSources {
-		domains, err := parser.FetchAndParseURL(source)
-		if err != nil {
-			logrus.WithError(err).WithField("source", source).Warn("Failed to fetch source")
-			continue
+	// Fetch and parse external sources (only if not in allow-only mode)
+	if !allowOnlyMode {
+		for _, source := range blockSources {
+			domains, err := parser.FetchAndParseURL(source)
+			if err != nil {
+				logrus.WithError(err).WithField("source", source).Warn("Failed to fetch source")
+				continue
+			}
+			blockDomains = append(blockDomains, domains...)
 		}
-		blockDomains = append(blockDomains, domains...)
 	}
 
 	// Deduplicate block domains
@@ -243,13 +245,20 @@ func updateEnterpriseRules(fetcher *rules.EnterpriseFetcher, parser *rules.Parse
 	// Update blocker
 	blocker.UpdateDomains(finalBlockDomains)
 	blocker.UpdateAllowlist(allowDomains)
+	blocker.SetAllowOnlyMode(allowOnlyMode)
 
-	logrus.WithFields(logrus.Fields{
+	logFields := logrus.Fields{
 		"blocked": len(finalBlockDomains),
 		"allowed": len(allowDomains),
 		"user":    enterpriseRules.UserEmail,
 		"group":   enterpriseRules.GroupName,
-	}).Info("Enterprise rules updated")
+	}
+
+	if allowOnlyMode {
+		logFields["mode"] = "allow-only"
+	}
+
+	logrus.WithFields(logFields).Info("Enterprise rules updated")
 }
 
 // logBinaryIntegrity logs information about the binary for tamper detection

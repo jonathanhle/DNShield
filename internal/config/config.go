@@ -128,6 +128,9 @@ type Rules struct {
 	BlockDomains []string  `yaml:"block_domains"` // Domains to block
 	AllowDomains []string  `yaml:"allow_domains"` // Domains to never block
 
+	// Allow-only mode: when true, block everything except AllowDomains
+	AllowOnlyMode bool `yaml:"allow_only_mode,omitempty"`
+
 	// Deprecated fields for backward compatibility
 	Sources   []string `yaml:"sources,omitempty"`   // Maps to BlockSources
 	Domains   []string `yaml:"domains,omitempty"`   // Maps to BlockDomains

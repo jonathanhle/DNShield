@@ -275,10 +275,34 @@ type EnterpriseRules struct {
 	FetchTime  time.Time
 }
 
+// IsAllowOnlyMode checks if allow-only mode is enabled for this device
+// Priority: User > Group > Base (if any level has it enabled, it's enabled)
+func (er *EnterpriseRules) IsAllowOnlyMode() bool {
+	// Check user rules first (highest priority)
+	if er.UserRules != nil && er.UserRules.AllowOnlyMode {
+		return true
+	}
+
+	// Check group rules
+	if er.GroupRules != nil && er.GroupRules.AllowOnlyMode {
+		return true
+	}
+
+	// Check base rules
+	if er.BaseRules != nil && er.BaseRules.AllowOnlyMode {
+		return true
+	}
+
+	return false
+}
+
 // MergeRules merges all rules according to precedence
-func (er *EnterpriseRules) MergeRules() (blockDomains []string, allowDomains []string) {
+func (er *EnterpriseRules) MergeRules() (blockDomains []string, allowDomains []string, allowOnlyMode bool) {
 	blockMap := make(map[string]bool)
 	allowMap := make(map[string]bool)
+
+	// Check if allow-only mode is enabled
+	allowOnlyMode = er.IsAllowOnlyMode()
 
 	// Start with base rules
 	if er.BaseRules != nil {
@@ -318,7 +342,7 @@ func (er *EnterpriseRules) MergeRules() (blockDomains []string, allowDomains []s
 		allowDomains = append(allowDomains, domain)
 	}
 
-	return blockDomains, allowDomains
+	return blockDomains, allowDomains, allowOnlyMode
 }
 
 // GetBlockSources returns all external blocklist URLs to fetch

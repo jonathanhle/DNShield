@@ -1,34 +1,28 @@
 version: "2024.01.15"
-description: "Restricted access for contractors, interns, and shared devices"
+description: "Restricted access for contractors, interns, and shared devices - Allow-only mode"
 
-# No additional allow_domains - only what's in base.yaml
+# Enable allow-only mode: Block EVERYTHING except what's explicitly allowed
+allow_only_mode: true
 
-block_domains:  # Extra restrictions
-  - slack.com
-  - discord.com
-  - telegram.org
-  - whatsapp.com
-  - zoom.us
-  - dropbox.com
-  - drive.google.com
-  - onedrive.com
-  - box.com
-  - wetransfer.com
-  - mega.nz
-  # Social media (ensure blocked)
-  - linkedin.com
-  - youtube.com
-  - vimeo.com
-  - twitch.tv
-  # News/entertainment
-  - reddit.com
-  - news.ycombinator.com
-  - medium.com
-  - netflix.com
-  - hulu.com
-  - spotify.com
-  - pandora.com
-
-# Use more aggressive blocklists
-block_sources:
-  - https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn-social/hosts
+# Only these domains are allowed (plus any from base.yaml)
+allow_domains:
+  # Essential work tools
+  - github.com         # For contractors working on code
+  - gitlab.com         # Alternative git hosting
+  - jira.company.com   # Internal task tracking
+  - wiki.company.com   # Internal documentation
+  - slack.company.com  # Internal Slack workspace only
+  
+  # Essential services
+  - google.com         # Search only
+  - duckduckgo.com     # Alternative search
+  - wikipedia.org      # Reference
+  - stackoverflow.com  # Technical reference (for technical contractors)
+  
+  # Company-specific tools (examples - customize these)
+  - timesheet.company.com
+  - expense.company.com
+  - training.company.com
+  
+# In allow-only mode, block_domains and block_sources are ignored
+# Everything not in allow_domains (or base.yaml allow_domains) is blocked

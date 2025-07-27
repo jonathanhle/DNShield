@@ -10,6 +10,7 @@ type Blocker struct {
 	mu             sync.RWMutex
 	blockedDomains map[string]bool
 	allowlist      map[string]bool // Renamed from whitelist
+	allowOnlyMode  bool            // When true, block everything except allowlist
 
 	// Track metadata for logging
 	userEmail string
@@ -62,14 +63,22 @@ func (b *Blocker) UpdateMetadata(userEmail, groupName string) {
 	b.groupName = groupName
 }
 
+// SetAllowOnlyMode enables or disables allow-only mode
+func (b *Blocker) SetAllowOnlyMode(enabled bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.allowOnlyMode = enabled
+}
+
 // IsBlocked checks if a domain should be blocked based on configured rules.
-// It performs hierarchical matching, checking the full domain and parent
-// domains against the blocklist while respecting whitelist entries.
+// It supports two modes:
+// 1. Normal mode: Block domains in blocklist unless they're in allowlist
+// 2. Allow-only mode: Block everything except domains in allowlist
 //
 // The lookup order is:
 //  1. Check allowlist (if allowed, never block)
-//  2. Check exact domain match in blocklist
-//  3. Check parent domains (e.g., sub.example.com checks example.com)
+//  2. In allow-only mode: block if not in allowlist
+//  3. In normal mode: check blocklist
 //
 // Example:
 //
@@ -96,13 +105,18 @@ func (b *Blocker) IsBlocked(domain string) bool {
 		}
 	}
 
+	// In allow-only mode, block everything not explicitly allowed
+	if b.allowOnlyMode {
+		return true
+	}
+
+	// Normal mode: check blocklist
 	// Check exact match
 	if b.blockedDomains[domain] {
 		return true
 	}
 
 	// Check parent domains in blocklist (e.g., subdomain.example.com → example.com)
-	// Note: we already checked allowlist parent domains above
 	for i := 1; i < len(parts); i++ {
 		parent := strings.Join(parts[i:], ".")
 		if b.blockedDomains[parent] {
@@ -132,4 +146,11 @@ func (b *Blocker) GetMetadata() (userEmail, groupName string) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	return b.userEmail, b.groupName
+}
+
+// IsAllowOnlyMode returns whether allow-only mode is enabled
+func (b *Blocker) IsAllowOnlyMode() bool {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.allowOnlyMode
 }

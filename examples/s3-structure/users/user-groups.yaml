@@ -25,8 +25,12 @@ group_assignments:
     - cfo@company.com
     - "*@exec.company.com"
   
-  restricted:  # Most restrictive access
+  restricted:  # Most restrictive access (allow-only mode)
     - shared-device@company.com  # Conference rooms, kiosks
+  
+  guest:  # Guest WiFi (standard blocklist mode)
+    - guest-wifi@company.com     # Generic guest account
+    - "*@guest.company.com"      # All guest accounts
 
 # Direct user assignments (override group assignments)
 user_overrides:
