@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -79,7 +80,7 @@ func runAgent(opts *RunOptions) error {
 	if envLogLevel := os.Getenv("DNSHIELD_LOG_LEVEL"); envLogLevel != "" {
 		logLevel = envLogLevel
 	}
-	
+
 	level, err := logrus.ParseLevel(logLevel)
 	if err != nil {
 		level = logrus.InfoLevel
@@ -173,63 +174,91 @@ func runAgent(opts *RunOptions) error {
 }
 
 func startRuleUpdater(cfg *config.Config, blocker *dns.Blocker) {
-	// Create S3 fetcher
-	fetcher, err := rules.NewFetcher(&cfg.S3)
+	// Create enterprise S3 fetcher
+	fetcher, err := rules.NewEnterpriseFetcher(&cfg.S3)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to create S3 fetcher")
+		logrus.WithError(err).Error("Failed to create enterprise S3 fetcher")
 		return
 	}
 
 	parser := rules.NewParser()
 
 	// Update rules immediately
-	updateRules(fetcher, parser, blocker)
+	updateEnterpriseRules(fetcher, parser, blocker)
+
+	// Add jitter to prevent thundering herd
+	if cfg.S3.UpdateJitter > 0 {
+		jitter := time.Duration(rand.Int63n(int64(cfg.S3.UpdateJitter)))
+		time.Sleep(jitter)
+	}
 
 	// Then update periodically
 	ticker := time.NewTicker(cfg.S3.UpdateInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		updateRules(fetcher, parser, blocker)
+		updateEnterpriseRules(fetcher, parser, blocker)
 	}
 }
 
-func updateRules(fetcher *rules.Fetcher, parser *rules.Parser, blocker *dns.Blocker) {
-	logrus.Info("Updating blocking rules...")
+func updateEnterpriseRules(fetcher *rules.EnterpriseFetcher, parser *rules.Parser, blocker *dns.Blocker) {
+	logrus.Info("Updating enterprise blocking rules...")
 
-	// Fetch rules from S3
-	ruleSet, err := fetcher.FetchRulesWithFallback("")
+	// Fetch all applicable rules for this device
+	enterpriseRules, err := fetcher.FetchEnterpriseRules()
 	if err != nil {
-		logrus.WithError(err).Error("Failed to fetch rules")
+		logrus.WithError(err).Error("Failed to fetch enterprise rules")
 		return
 	}
 
-	// Collect all domains
-	var allDomains []string
+	// Log device identity
+	logrus.WithFields(logrus.Fields{
+		"device": enterpriseRules.DeviceName,
+		"user":   enterpriseRules.UserEmail,
+		"group":  enterpriseRules.GroupName,
+	}).Info("Device identity resolved")
 
-	// Add direct domains
-	allDomains = append(allDomains, ruleSet.Domains...)
+	// Update blocker metadata for logging
+	blocker.UpdateMetadata(enterpriseRules.UserEmail, enterpriseRules.GroupName)
 
-	// Fetch and parse external sources
-	for _, source := range ruleSet.Sources {
-		domains, err := parser.FetchAndParseURL(source)
-		if err != nil {
-			logrus.WithError(err).WithField("source", source).Warn("Failed to fetch source")
-			continue
+	// Merge rules according to precedence
+	blockDomains, allowDomains, allowOnlyMode := enterpriseRules.MergeRules()
+
+	// Get external block sources
+	blockSources := enterpriseRules.GetBlockSources()
+
+	// Fetch and parse external sources (only if not in allow-only mode)
+	if !allowOnlyMode {
+		for _, source := range blockSources {
+			domains, err := parser.FetchAndParseURL(source)
+			if err != nil {
+				logrus.WithError(err).WithField("source", source).Warn("Failed to fetch source")
+				continue
+			}
+			blockDomains = append(blockDomains, domains...)
 		}
-		allDomains = append(allDomains, domains...)
 	}
 
-	// Merge and deduplicate
-	finalDomains := rules.MergeDomains(allDomains)
+	// Deduplicate block domains
+	finalBlockDomains := rules.MergeDomains(blockDomains)
 
 	// Update blocker
-	blocker.UpdateDomains(finalDomains)
-	if len(ruleSet.Whitelist) > 0 {
-		blocker.UpdateWhitelist(ruleSet.Whitelist)
+	blocker.UpdateDomains(finalBlockDomains)
+	blocker.UpdateAllowlist(allowDomains)
+	blocker.SetAllowOnlyMode(allowOnlyMode)
+
+	logFields := logrus.Fields{
+		"blocked": len(finalBlockDomains),
+		"allowed": len(allowDomains),
+		"user":    enterpriseRules.UserEmail,
+		"group":   enterpriseRules.GroupName,
 	}
 
-	logrus.WithField("domains", len(finalDomains)).Info("Rules updated")
+	if allowOnlyMode {
+		logFields["mode"] = "allow-only"
+	}
+
+	logrus.WithFields(logFields).Info("Enterprise rules updated")
 }
 
 // logBinaryIntegrity logs information about the binary for tamper detection
@@ -310,7 +339,7 @@ func monitorDNSConfiguration() {
 	for range ticker.C {
 		checkCount++
 		logrus.WithField("check_count", checkCount).Debug("Performing DNS configuration check")
-		
+
 		if err := VerifyDNSConfiguration(); err != nil {
 			logrus.WithError(err).Warn("DNS configuration drift detected, reconfiguring...")
 

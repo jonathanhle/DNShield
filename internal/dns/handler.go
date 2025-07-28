@@ -67,7 +67,22 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	// Check if domain is blocked (unless in bypass mode)
 	if !h.captiveDetector.IsInBypassMode() && h.blocker.IsBlocked(domain) {
-		logrus.WithField("domain", domain).Info("Blocked domain")
+		// Get user/group metadata for logging
+		userEmail, groupName := h.blocker.GetMetadata()
+
+		logFields := logrus.Fields{
+			"domain": domain,
+		}
+
+		// Include user/group if they're set
+		if userEmail != "" {
+			logFields["user"] = userEmail
+		}
+		if groupName != "" {
+			logFields["group"] = groupName
+		}
+
+		logrus.WithFields(logFields).Info("Blocked domain")
 
 		switch question.Qtype {
 		case dns.TypeA:

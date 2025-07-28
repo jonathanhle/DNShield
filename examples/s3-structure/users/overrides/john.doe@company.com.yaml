@@ -1,0 +1,14 @@
+version: "2024.01.15"
+description: "Specific rules for john.doe@company.com"
+
+allow_domains:  # John needs these for a specific project
+  - competitor-analysis.com
+  - industry-research-tool.com
+  - client-portal.example.com
+  - partner-dashboard.com
+  
+block_domains:  # John requested these be blocked for productivity
+  - reddit.com
+  - news.ycombinator.com
+  - techcrunch.com
+  - theverge.com

@@ -1,0 +1,40 @@
+# Enterprise DNShield Configuration
+# This configuration uses the new multi-file S3 structure for enterprise deployments
+
+agent:
+  dnsPort: 53
+  httpPort: 80
+  httpsPort: 443
+  logLevel: info
+
+dns:
+  upstreams:
+    - "1.1.1.1"
+    - "8.8.8.8"
+  cacheSize: 10000
+  cacheTTL: "1h"
+
+s3:
+  bucket: "company-dns-rules"
+  region: "us-east-1"
+  updateInterval: "5m"
+  updateJitter: "30s"  # Random delay to prevent thundering herd
+  
+  # New enterprise path structure
+  paths:
+    base: "base.yaml"                              # Base rules for everyone
+    deviceMapping: "users/device-mapping.yaml"     # Maps devices to users
+    userGroups: "users/user-groups.yaml"          # Maps users to groups
+    groupsDir: "groups/"                          # Directory containing group rules
+    userOverridesDir: "users/overrides/"          # Directory for per-user overrides
+
+blocking:
+  defaultAction: "block"
+  blockType: "sinkhole"
+  blockTTL: "10s"
+
+# For local testing, you can use these test domains
+# Remove in production
+testDomains:
+  - "test-blocked.com"
+  - "ads.example.com"

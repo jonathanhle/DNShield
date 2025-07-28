@@ -1,0 +1,43 @@
+version: "2024.01.15"
+description: "Minimal restrictions for executives"
+
+allow_domains:  # Executives have broader access
+  # All social media
+  - facebook.com
+  - twitter.com
+  - instagram.com
+  - linkedin.com
+  - youtube.com
+  # News sites
+  - wsj.com
+  - nytimes.com
+  - bloomberg.com
+  - reuters.com
+  - ft.com
+  - economist.com
+  - businessinsider.com
+  # Travel
+  - expedia.com
+  - booking.com
+  - airbnb.com
+  - uber.com
+  - lyft.com
+  # Banking (examples)
+  - chase.com
+  - bankofamerica.com
+  - wellsfargo.com
+  - citibank.com
+  # Investment platforms
+  - fidelity.com
+  - vanguard.com
+  - schwab.com
+  - etrade.com
+
+# Executives get minimal additional blocks
+block_domains:
+  - known-malware.com
+  - confirmed-phishing.com
+
+# Only essential blocklists
+block_sources:
+  - https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts

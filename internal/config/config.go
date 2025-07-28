@@ -33,11 +33,23 @@ type AgentConfig struct {
 type S3Config struct {
 	Bucket         string        `yaml:"bucket"`
 	Region         string        `yaml:"region"`
-	RulesPath      string        `yaml:"rulesPath"`
+	RulesPath      string        `yaml:"rulesPath"` // Deprecated, kept for compatibility
 	UpdateInterval time.Duration `yaml:"updateInterval"`
+	UpdateJitter   time.Duration `yaml:"updateJitter"` // Random delay to prevent thundering herd
 	AccessKeyID    string        `yaml:"accessKeyId,omitempty"`
 	SecretKey      string        `yaml:"secretKey,omitempty"`
 	LogPrefix      string        `yaml:"logPrefix,omitempty"`
+
+	// New path structure for enterprise rules
+	Paths S3Paths `yaml:"paths"`
+}
+
+type S3Paths struct {
+	Base             string `yaml:"base"`             // base.yaml
+	DeviceMapping    string `yaml:"deviceMapping"`    // users/device-mapping.yaml
+	UserGroups       string `yaml:"userGroups"`       // users/user-groups.yaml
+	GroupsDir        string `yaml:"groupsDir"`        // groups/
+	UserOverridesDir string `yaml:"userOverridesDir"` // users/overrides/
 }
 
 type DNSConfig struct {
@@ -116,7 +128,15 @@ func LoadConfig(path string) (*Config, error) {
 		},
 		S3: S3Config{
 			UpdateInterval: 5 * time.Minute,
+			UpdateJitter:   30 * time.Second,
 			LogPrefix:      "audit-logs/",
+			Paths: S3Paths{
+				Base:             "base.yaml",
+				DeviceMapping:    "users/device-mapping.yaml",
+				UserGroups:       "users/user-groups.yaml",
+				GroupsDir:        "groups/",
+				UserOverridesDir: "users/overrides/",
+			},
 		},
 		Logging: LoggingConfig{
 			Splunk: SplunkConfig{
@@ -173,10 +193,55 @@ func LoadConfig(path string) (*Config, error) {
 
 // Rules represents the blocklist rules fetched from S3
 type Rules struct {
-	Version   string    `yaml:"version"`
-	Updated   time.Time `yaml:"updated"`
-	Sources   []string  `yaml:"sources"`
-	Domains   []string  `yaml:"domains"`
-	Whitelist []string  `yaml:"whitelist"`
-	Regex     []string  `yaml:"regex,omitempty"`
+	Version      string    `yaml:"version"`
+	Description  string    `yaml:"description,omitempty"`
+	Updated      time.Time `yaml:"updated"`
+	BlockSources []string  `yaml:"block_sources"` // External blocklist URLs
+	BlockDomains []string  `yaml:"block_domains"` // Domains to block
+	AllowDomains []string  `yaml:"allow_domains"` // Domains to never block
+
+	// Allow-only mode: when true, block everything except AllowDomains
+	AllowOnlyMode bool `yaml:"allow_only_mode,omitempty"`
+
+	// Deprecated fields for backward compatibility
+	Sources   []string `yaml:"sources,omitempty"`   // Maps to BlockSources
+	Domains   []string `yaml:"domains,omitempty"`   // Maps to BlockDomains
+	Whitelist []string `yaml:"whitelist,omitempty"` // Maps to AllowDomains
+	Regex     []string `yaml:"regex,omitempty"`
+}
+
+// DeviceMapping represents the device-to-user mapping
+type DeviceMapping struct {
+	Version     string                 `yaml:"version"`
+	Description string                 `yaml:"description,omitempty"`
+	Users       map[string]UserDevices `yaml:"users"`
+}
+
+type UserDevices struct {
+	Devices []string `yaml:"devices"`
+}
+
+// UserGroups represents the user-to-group mapping
+type UserGroups struct {
+	Version          string              `yaml:"version"`
+	Description      string              `yaml:"description,omitempty"`
+	GroupAssignments map[string][]string `yaml:"group_assignments"` // group -> users
+	UserOverrides    map[string]string   `yaml:"user_overrides"`    // user -> group
+}
+
+// Normalize converts deprecated field names to new ones
+func (r *Rules) Normalize() {
+	// Migrate deprecated fields to new fields
+	if len(r.Sources) > 0 && len(r.BlockSources) == 0 {
+		r.BlockSources = r.Sources
+		r.Sources = nil
+	}
+	if len(r.Domains) > 0 && len(r.BlockDomains) == 0 {
+		r.BlockDomains = r.Domains
+		r.Domains = nil
+	}
+	if len(r.Whitelist) > 0 && len(r.AllowDomains) == 0 {
+		r.AllowDomains = r.Whitelist
+		r.Whitelist = nil
+	}
 }

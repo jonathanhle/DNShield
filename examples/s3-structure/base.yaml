@@ -1,0 +1,24 @@
+version: "2024.01.15"
+description: "Base blocking rules applied to all clients"
+
+block_domains:
+  - doubleclick.net
+  - googleadservices.com
+  - googlesyndication.com
+  - google-analytics.com
+  - amazon-adsystem.com
+  - facebook.com  # Blocked by default, groups can override
+  - twitter.com   # Blocked by default, groups can override
+  - malware-site.com
+  - phishing-example.com
+
+block_sources:  # External blocklists
+  - https://someonewhocares.org/hosts/hosts
+  - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+
+allow_domains:  # Critical domains - never block these
+  - company-intranet.com
+  - company-portal.local
+  - okta.company.com
+  - vpn.company.com
+  - mail.company.com
