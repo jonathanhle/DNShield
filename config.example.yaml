@@ -49,6 +49,23 @@ blocking:
   blockType: "sinkhole"    # How to block: sinkhole, nxdomain, or refused
   blockTTL: "10s"         # TTL for blocked responses
 
+# Captive portal detection and bypass
+captivePortal:
+  enabled: true             # Enable automatic captive portal detection
+  detectionThreshold: 3     # Number of unique captive portal domains to trigger bypass
+  detectionWindow: "10s"    # Time window for counting captive portal requests
+  bypassDuration: "5m"      # How long to disable filtering when captive portal detected
+  
+  # Additional captive portal domains (beyond built-in list)
+  # Use this to add custom domains for specific networks
+  additionalDomains: []
+  # Examples:
+  # - "wifi.mycompany.com"         # Corporate WiFi portal
+  # - "portal.hotel-chain.com"     # Specific hotel chain
+  # - "jetblue.com"               # Airlines not in default list
+  # - "portal.trainline.com"      # Train/transit WiFi
+  # - "auth.mcdonaldswifi.com"    # Restaurant chains
+
 # Logging configuration
 logging:
   # Splunk HTTP Event Collector (primary logging destination)

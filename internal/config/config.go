@@ -12,11 +12,12 @@ import (
 )
 
 type Config struct {
-	Agent    AgentConfig    `yaml:"agent"`
-	S3       S3Config       `yaml:"s3"`
-	DNS      DNSConfig      `yaml:"dns"`
-	Blocking BlockingConfig `yaml:"blocking"`
-	Logging  LoggingConfig  `yaml:"logging"`
+	Agent         AgentConfig         `yaml:"agent"`
+	S3            S3Config            `yaml:"s3"`
+	DNS           DNSConfig           `yaml:"dns"`
+	Blocking      BlockingConfig      `yaml:"blocking"`
+	CaptivePortal CaptivePortalConfig `yaml:"captivePortal"`
+	Logging       LoggingConfig       `yaml:"logging"`
 
 	// For demo purposes
 	TestDomains []string `yaml:"testDomains"`
@@ -49,6 +50,19 @@ type BlockingConfig struct {
 	DefaultAction string        `yaml:"defaultAction"`
 	BlockType     string        `yaml:"blockType"`
 	BlockTTL      time.Duration `yaml:"blockTTL"`
+}
+
+type CaptivePortalConfig struct {
+	// Enable automatic captive portal detection
+	Enabled bool `yaml:"enabled"`
+	// Number of requests to captive portal domains within the time window to trigger bypass
+	DetectionThreshold int `yaml:"detectionThreshold"`
+	// Time window for counting captive portal requests
+	DetectionWindow time.Duration `yaml:"detectionWindow"`
+	// How long to bypass DNS filtering when captive portal is detected
+	BypassDuration time.Duration `yaml:"bypassDuration"`
+	// Additional captive portal domains to monitor (beyond the built-in list)
+	AdditionalDomains []string `yaml:"additionalDomains,omitempty"`
 }
 
 type LoggingConfig struct {
@@ -123,6 +137,12 @@ func LoadConfig(path string) (*Config, error) {
 				BufferSize:   10000,
 				FallbackPath: "~/.dnshield/audit/buffer",
 			},
+		},
+		CaptivePortal: CaptivePortalConfig{
+			Enabled:            true,
+			DetectionThreshold: 3,
+			DetectionWindow:    10 * time.Second,
+			BypassDuration:     5 * time.Minute,
 		},
 	}
 

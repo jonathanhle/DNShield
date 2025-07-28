@@ -117,7 +117,7 @@ func runAgent(opts *RunOptions) error {
 	}
 
 	// Create DNS handler and server
-	handler := dns.NewHandler(blocker, cfg.DNS.Upstreams, "127.0.0.1")
+	handler := dns.NewHandler(blocker, cfg.DNS.Upstreams, "127.0.0.1", &cfg.CaptivePortal)
 	dnsServer := dns.NewServer(handler)
 
 	// Create certificate generator and HTTPS proxy

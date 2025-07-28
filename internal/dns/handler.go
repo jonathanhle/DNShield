@@ -7,28 +7,31 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
+	"dnshield/internal/config"
 )
 
 // Handler handles DNS queries
 type Handler struct {
-	blocker   *Blocker
-	upstreams []string
-	blockIP   net.IP
-	cache     *Cache
+	blocker          *Blocker
+	upstreams        []string
+	blockIP          net.IP
+	cache            *Cache
+	captiveDetector  *CaptivePortalDetector
 }
 
 // NewHandler creates a new DNS handler
-func NewHandler(blocker *Blocker, upstreams []string, blockIP string) *Handler {
+func NewHandler(blocker *Blocker, upstreams []string, blockIP string, captivePortalCfg *config.CaptivePortalConfig) *Handler {
 	ip := net.ParseIP(blockIP)
 	if ip == nil {
 		ip = net.ParseIP("127.0.0.1")
 	}
 
 	return &Handler{
-		blocker:   blocker,
-		upstreams: upstreams,
-		blockIP:   ip,
-		cache:     NewCache(10000, 1*time.Hour),
+		blocker:         blocker,
+		upstreams:       upstreams,
+		blockIP:         ip,
+		cache:           NewCache(10000, 1*time.Hour),
+		captiveDetector: NewCaptivePortalDetector(captivePortalCfg),
 	}
 }
 
@@ -52,6 +55,9 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		"type":   dns.TypeToString[question.Qtype],
 	}).Debug("DNS query received")
 
+	// Record request for captive portal detection
+	h.captiveDetector.RecordRequest(domain)
+
 	// Check cache first
 	if cached := h.cache.Get(domain, question.Qtype); cached != nil {
 		m.Answer = append(m.Answer, cached...)
@@ -59,8 +65,8 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	// Check if domain is blocked
-	if h.blocker.IsBlocked(domain) {
+	// Check if domain is blocked (unless in bypass mode)
+	if !h.captiveDetector.IsInBypassMode() && h.blocker.IsBlocked(domain) {
 		logrus.WithField("domain", domain).Info("Blocked domain")
 
 		switch question.Qtype {
@@ -119,4 +125,9 @@ func (h *Handler) forwardToUpstream(w dns.ResponseWriter, r *dns.Msg, m *dns.Msg
 	// All upstreams failed
 	m.Rcode = dns.RcodeServerFailure
 	w.WriteMsg(m)
+}
+
+// GetCaptivePortalDetector returns the captive portal detector
+func (h *Handler) GetCaptivePortalDetector() *CaptivePortalDetector {
+	return h.captiveDetector
 }

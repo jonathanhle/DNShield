@@ -90,3 +90,8 @@ func (s *Server) Stop() error {
 	s.started = false
 	return nil
 }
+
+// GetHandler returns the DNS handler
+func (s *Server) GetHandler() *Handler {
+	return s.handler
+}
