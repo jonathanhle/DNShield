@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -11,9 +12,11 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
+	"dnshield/internal/api"
 	"dnshield/internal/audit"
 	"dnshield/internal/ca"
 	"dnshield/internal/config"
@@ -117,8 +120,50 @@ func runAgent(opts *RunOptions) error {
 		blocker.UpdateDomains(cfg.TestDomains)
 	}
 
-	// Create DNS handler and server
+	// Create network-aware DNS manager for handling pause/resume
+	dnsManager := dns.NewNetworkManager()
+
+	// Start network monitoring
+	if err := dnsManager.Start(); err != nil {
+		logrus.WithError(err).Warn("Failed to start network monitoring")
+	}
+	defer dnsManager.Stop()
+
+	// Enable DNS filtering if auto-configure is set
+	if opts.AutoConfigure {
+		if err := dnsManager.EnableDNSFiltering(); err != nil {
+			logrus.WithError(err).Warn("Failed to enable DNS filtering via network manager")
+		}
+	}
+
+	// Create API server for menu bar app
+	apiServer := api.NewServer(dnsManager)
+
+	// Start API server
+	go func() {
+		if err := apiServer.Start(5353); err != nil {
+			logrus.WithError(err).Error("API server failed")
+		}
+	}()
+
+	// Create DNS handler and server with API integration and captive portal support
 	handler := dns.NewHandler(blocker, cfg.DNS.Upstreams, "127.0.0.1", &cfg.CaptivePortal)
+	handler.SetStatsCallback(func(query bool, blocked bool, cached bool) {
+		if query {
+			apiServer.IncrementQueries()
+		}
+		if blocked {
+			apiServer.IncrementBlocked()
+		}
+		if cached {
+			apiServer.IncrementCacheHit()
+		} else if query {
+			apiServer.IncrementCacheMiss()
+		}
+	})
+	handler.SetBlockedCallback(func(domain, rule, clientIP string) {
+		apiServer.AddBlockedDomain(domain, rule, clientIP)
+	})
 	dnsServer := dns.NewServer(handler)
 
 	// Create certificate generator and HTTPS proxy
@@ -147,7 +192,52 @@ func runAgent(opts *RunOptions) error {
 	logrus.Info("DNS server listening on port 53")
 	logrus.Info("HTTP server listening on port 80")
 	logrus.Info("HTTPS server listening on port 443")
+	logrus.Info("API server listening on port 5353")
 	logrus.WithField("domains", blocker.GetBlockedCount()).Info("Blocked domains loaded")
+
+	// Register status callback for API
+	startTime := time.Now()
+	apiServer.RegisterStatusCallback(func() api.Status {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+
+		return api.Status{
+			Running:          true,
+			Protected:        true,
+			DNSConfigured:    true,
+			CurrentDNS:       []string{"127.0.0.1"},
+			UpstreamDNS:      cfg.DNS.Upstreams,
+			Mode:             getSecurityMode(),
+			PolicyEnforced:   !cfg.Agent.AllowDisable,
+			PolicySource:     "local",
+			LastHealthCheck:  time.Now(),
+			Version:          "1.0.0",
+			CertificateValid: true,
+		}
+	})
+
+	// Update API server configuration
+	apiServer.UpdateConfig(&api.Config{
+		AllowPause:     cfg.Agent.AllowDisable,
+		AllowQuit:      cfg.Agent.AllowDisable,
+		UpdateInterval: int(cfg.S3.UpdateInterval / time.Minute),
+	})
+
+	// Start periodic stats update
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+
+			stats := apiServer.GetStats()
+			stats.MemoryUsageMB = float64(m.Alloc) / 1024 / 1024
+			stats.Uptime = time.Since(startTime).String()
+			apiServer.UpdateStats(stats)
+		}
+	}()
 
 	// Start DNS configuration monitor if auto-configure is enabled
 	if opts.AutoConfigure {
@@ -162,6 +252,12 @@ func runAgent(opts *RunOptions) error {
 	logrus.Info("Shutting down...")
 
 	// Stop servers
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := apiServer.Stop(ctx); err != nil {
+		logrus.WithError(err).Warn("Error stopping API server")
+	}
 	if err := dnsServer.Stop(); err != nil {
 		logrus.WithError(err).Warn("Error stopping DNS server")
 	}

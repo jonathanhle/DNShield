@@ -95,8 +95,13 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 - **Statistics**: Query metrics and reporting
 
 ### DNS Configuration Management
+- **Network-Aware**: Automatically detects and remembers DNS settings for each network
+- **Smart Pause**: Temporarily restores original DNS servers with automatic resume
+- **Per-Network Storage**: Maintains separate DNS configurations for home, office, coffee shop, etc.
 - **Automatic Configuration**: Set DNS to 127.0.0.1 on all network interfaces
 - **Multi-Interface Support**: Works with Wi-Fi, Ethernet, Thunderbolt, USB, VPN
+- **Network Change Detection**: Monitors and adapts to network switches in real-time
+- **VPN Compatible**: Handles VPN connections gracefully
 - **Configuration Backup**: Saves current DNS settings before changes
 - **Easy Restoration**: Restore previous DNS settings with one command
 - **Drift Protection**: Auto-monitors and corrects DNS configuration changes every minute

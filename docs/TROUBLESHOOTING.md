@@ -62,10 +62,10 @@ Run the status command to check system health:
 
 **Solutions:**
 
-1. **Verify DNS Guardian is running:**
+1. **Verify DNShield is running:**
    ```bash
    # Check if process is running
-   ps aux | grep dns-guardian
+   ps aux | grep dnshield
    
    # Check if port 53 is listening
    sudo lsof -i :53
@@ -73,7 +73,7 @@ Run the status command to check system health:
 
 2. **Test DNS resolution:**
    ```bash
-   # Test using DNS Guardian
+   # Test using DNShield
    dig @127.0.0.1 google.com
    
    # Test upstream DNS
@@ -272,8 +272,78 @@ Run the status command to check system health:
 3. **Enable rate limiting (future feature)**
 
 4. **Check for DNS loops:**
-   - Ensure DNS Guardian isn't querying itself
+   - Ensure DNShield isn't querying itself
    - Verify upstream DNS servers are correct
+
+### 8. Pause/Resume Not Working
+
+**Symptoms:**
+- Pause doesn't restore original DNS
+- Resume doesn't re-enable filtering
+- Network-specific DNS not remembered
+
+**Solutions:**
+
+1. **Check pause is enabled:**
+   ```yaml
+   # config.yaml
+   agent:
+     allowPause: true
+   ```
+
+2. **Verify network DNS storage:**
+   ```bash
+   # Check stored network configurations
+   ls -la ~/.dnshield/network-dns/
+   
+   # View current network config
+   cat ~/.dnshield/network-dns/network-*.json
+   ```
+
+3. **Test pause/resume:**
+   ```bash
+   # Check current status
+   curl http://localhost:5353/api/status
+   
+   # Pause for 5 minutes
+   curl -X POST http://localhost:5353/api/pause -d '{"duration":"5m"}'
+   
+   # Verify DNS restored
+   networksetup -getdnsservers Wi-Fi
+   ```
+
+### 9. Network Changes Not Detected
+
+**Symptoms:**
+- Wrong DNS restored when pausing
+- DNS settings from previous network used
+- Network transitions not handled
+
+**Solutions:**
+
+1. **Check network monitoring:**
+   ```bash
+   # Enable debug logging
+   sudo ./dnshield run --log-level debug
+   
+   # Look for network change logs
+   grep "Network change detected" /var/log/dnshield.log
+   ```
+
+2. **Manually trigger network detection:**
+   ```bash
+   # Switch WiFi networks or toggle WiFi off/on
+   # DNShield should detect within 5-10 seconds
+   ```
+
+3. **Verify network storage:**
+   ```bash
+   # List all stored networks
+   for f in ~/.dnshield/network-dns/*.json; do
+     echo "=== $f ==="
+     cat "$f" | jq .
+   done
+   ```
 
 ## Debug Mode
 
@@ -330,8 +400,8 @@ grep "Cache full" /var/log/dnshield.log
 
 3. **Verify v2 mode is enabled:**
    ```bash
-   echo $DNS_GUARDIAN_SECURITY_MODE  # Should show "v2"
-   echo $DNS_GUARDIAN_USE_KEYCHAIN   # Should show "true"
+   echo $DNSHIELD_SECURITY_MODE  # Should show "v2"
+   echo $DNSHIELD_USE_KEYCHAIN   # Should show "true"
    ```
 
 ### Certificate Generation Fails in v2 Mode
@@ -344,7 +414,7 @@ grep "Cache full" /var/log/dnshield.log
 
 1. **Verify key exists in System keychain:**
    ```bash
-   sudo security find-generic-password -s "com.dnsguardian.ca" /Library/Keychains/System.keychain
+   sudo security find-generic-password -s "com.dnshield.ca" /Library/Keychains/System.keychain
    ```
 
 2. **Check audit logs:**
@@ -355,7 +425,7 @@ grep "Cache full" /var/log/dnshield.log
 3. **Reinstall CA in v2 mode:**
    ```bash
    # Clean up first
-   sudo security delete-generic-password -s "com.dnsguardian.ca" /Library/Keychains/System.keychain 2>/dev/null
+   sudo security delete-generic-password -s "com.dnshield.ca" /Library/Keychains/System.keychain 2>/dev/null
    sudo security delete-certificate -c "DNShield Root CA" /Library/Keychains/System.keychain 2>/dev/null
    
    # Reinstall

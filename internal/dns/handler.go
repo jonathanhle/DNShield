@@ -17,6 +17,8 @@ type Handler struct {
 	blockIP          net.IP
 	cache            *Cache
 	captiveDetector  *CaptivePortalDetector
+	statsCallback    func(query bool, blocked bool, cached bool)
+	blockedCallback  func(domain, rule, clientIP string)
 }
 
 // NewHandler creates a new DNS handler
@@ -33,6 +35,16 @@ func NewHandler(blocker *Blocker, upstreams []string, blockIP string, captivePor
 		cache:           NewCache(10000, 1*time.Hour),
 		captiveDetector: NewCaptivePortalDetector(captivePortalCfg),
 	}
+}
+
+// SetStatsCallback sets the callback for statistics updates
+func (h *Handler) SetStatsCallback(cb func(query bool, blocked bool, cached bool)) {
+	h.statsCallback = cb
+}
+
+// SetBlockedCallback sets the callback for blocked domains
+func (h *Handler) SetBlockedCallback(cb func(domain, rule, clientIP string)) {
+	h.blockedCallback = cb
 }
 
 // ServeDNS implements the dns.Handler interface
@@ -55,6 +67,13 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		"type":   dns.TypeToString[question.Qtype],
 	}).Debug("DNS query received")
 
+	// Record query
+	if h.statsCallback != nil {
+		defer func() {
+			h.statsCallback(true, false, false) // Will be updated based on result
+		}()
+	}
+
 	// Record request for captive portal detection
 	h.captiveDetector.RecordRequest(domain)
 
@@ -62,6 +81,9 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	if cached := h.cache.Get(domain, question.Qtype); cached != nil {
 		m.Answer = append(m.Answer, cached...)
 		w.WriteMsg(m)
+		if h.statsCallback != nil {
+			h.statsCallback(false, false, true) // Cached response
+		}
 		return
 	}
 
@@ -83,6 +105,19 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}
 
 		logrus.WithFields(logFields).Info("Blocked domain")
+
+		// Get client IP
+		clientIP := ""
+		if addr, ok := w.RemoteAddr().(*net.UDPAddr); ok {
+			clientIP = addr.IP.String()
+		}
+
+		if h.statsCallback != nil {
+			h.statsCallback(false, true, false) // Blocked
+		}
+		if h.blockedCallback != nil {
+			h.blockedCallback(domain, "blocklist", clientIP)
+		}
 
 		switch question.Qtype {
 		case dns.TypeA:

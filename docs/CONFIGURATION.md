@@ -26,6 +26,12 @@ agent:
   
   # Logging level: debug, info, warn, error
   logLevel: "info"
+  
+  # Allow users to pause DNS filtering (enterprise policy)
+  allowPause: true
+  
+  # Allow users to disable DNS filtering entirely
+  allowDisable: false
 
 # DNS server configuration
 dns:
@@ -80,22 +86,22 @@ testDomains:
 
 ## DNS Configuration Options
 
-DNS Guardian can automatically manage DNS settings on all network interfaces:
+DNShield provides intelligent network-aware DNS management:
 
 ### Command Line Options
 
 ```bash
 # Configure DNS on all interfaces
-sudo ./dns-guardian configure-dns
+sudo ./dnshield configure-dns
 
 # Restore previous DNS settings
-sudo ./dns-guardian configure-dns --restore
+sudo ./dnshield configure-dns --restore
 
 # Force configuration without prompts
-sudo ./dns-guardian configure-dns --force
+sudo ./dnshield configure-dns --force
 
 # Run with automatic DNS configuration
-sudo ./dns-guardian run --auto-configure-dns
+sudo ./dnshield run --auto-configure-dns
 ```
 
 ### Auto-Configuration Behavior
@@ -105,6 +111,16 @@ When running with `--auto-configure-dns`:
 - DNS settings are monitored every minute
 - Any changes are automatically corrected
 - Previous settings are saved for restoration
+
+### Network-Aware DNS Management
+
+DNShield automatically:
+- Detects network changes (WiFi, Ethernet, VPN)
+- Stores DNS configuration per network
+- Restores network-specific DNS when paused
+- Handles sleep/wake cycles gracefully
+
+Network configurations are stored in `~/.dnshield/network-dns/`
 
 ## Environment Variables
 
@@ -117,14 +133,14 @@ export AWS_SECRET_ACCESS_KEY="your-secret-key"
 export AWS_REGION="us-east-1"
 
 # Override config file location
-export DNS_GUARDIAN_CONFIG="/etc/dns-guardian/config.yaml"
+export DNSHIELD_CONFIG="/etc/dnshield/config.yaml"
 
 # Set log level
 export LOG_LEVEL="debug"
 
 # Enable v2.0 security mode (System Keychain storage)
-export DNS_GUARDIAN_SECURITY_MODE="v2"
-export DNS_GUARDIAN_USE_KEYCHAIN="true"
+export DNSHIELD_SECURITY_MODE="v2"
+export DNSHIELD_USE_KEYCHAIN="true"
 ```
 
 ## S3 Rule File Format
@@ -221,14 +237,14 @@ For enterprise deployments with enhanced security:
 
 ```bash
 # Enable v2.0 mode with System Keychain storage
-export DNS_GUARDIAN_SECURITY_MODE="v2"
-export DNS_GUARDIAN_USE_KEYCHAIN="true"
+export DNSHIELD_SECURITY_MODE="v2"
+export DNSHIELD_USE_KEYCHAIN="true"
 
 # Install CA (requires sudo for System Keychain)
-sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian install-ca
+sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true ./dnshield install-ca
 
 # Run in v2 mode
-sudo DNS_GUARDIAN_SECURITY_MODE=v2 DNS_GUARDIAN_USE_KEYCHAIN=true ./dns-guardian run
+sudo DNSHIELD_SECURITY_MODE=v2 DNSHIELD_USE_KEYCHAIN=true ./dnshield run
 ```
 
 ## Advanced Configuration
@@ -282,9 +298,24 @@ dns:
   cacheTTL: "30m"        # Shorter TTL
 ```
 
+## Pause Functionality Configuration
+
+Configure pause behavior:
+
+```yaml
+agent:
+  allowPause: true       # Allow temporary pause
+  allowDisable: false    # Prevent complete disable
+```
+
+When paused:
+- DNShield restores the original DNS servers for the current network
+- Each network's DNS configuration is remembered separately
+- Automatic resume after specified duration (5min, 30min, 1hr)
+
 ## Validation
 
-DNS Guardian validates configuration on startup:
+DNShield validates configuration on startup:
 - Required fields must be present
 - Port numbers must be valid (1-65535)
 - Time durations must be parseable
@@ -301,5 +332,5 @@ Configuration hot reload is planned for v2.0:
 kill -HUP <pid>
 
 # Or use the CLI
-dns-guardian reload
+dnshield reload
 ```
