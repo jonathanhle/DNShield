@@ -17,6 +17,7 @@ type Config struct {
 	DNS           DNSConfig           `yaml:"dns"`
 	Blocking      BlockingConfig      `yaml:"blocking"`
 	CaptivePortal CaptivePortalConfig `yaml:"captivePortal"`
+	Logging       LoggingConfig       `yaml:"logging"`
 
 	// For demo purposes
 	TestDomains []string `yaml:"testDomains"`
@@ -36,6 +37,7 @@ type S3Config struct {
 	UpdateInterval time.Duration `yaml:"updateInterval"`
 	AccessKeyID    string        `yaml:"accessKeyId,omitempty"`
 	SecretKey      string        `yaml:"secretKey,omitempty"`
+	LogPrefix      string        `yaml:"logPrefix,omitempty"`
 }
 
 type DNSConfig struct {
@@ -63,6 +65,35 @@ type CaptivePortalConfig struct {
 	AdditionalDomains []string `yaml:"additionalDomains,omitempty"`
 }
 
+type LoggingConfig struct {
+	Splunk SplunkConfig `yaml:"splunk"`
+	S3     S3LogConfig  `yaml:"s3"`
+	Local  LocalConfig  `yaml:"local"`
+}
+
+type SplunkConfig struct {
+	Enabled            bool          `yaml:"enabled"`
+	Endpoint           string        `yaml:"endpoint"`
+	Token              string        `yaml:"token"`
+	Index              string        `yaml:"index"`
+	Sourcetype         string        `yaml:"sourcetype"`
+	VerifyServerCert   bool          `yaml:"verifyServerCert"`
+	RetryMaxAttempts   int           `yaml:"retryMaxAttempts"`
+	RetryBackoffSecs   int           `yaml:"retryBackoffSecs"`
+}
+
+type S3LogConfig struct {
+	Enabled        bool          `yaml:"enabled"`
+	BatchInterval  time.Duration `yaml:"batchInterval"`
+	Compression    string        `yaml:"compression"`
+	Retention      time.Duration `yaml:"retention"`
+}
+
+type LocalConfig struct {
+	BufferSize   int    `yaml:"bufferSize"`
+	FallbackPath string `yaml:"fallbackPath"`
+}
+
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(path string) (*Config, error) {
 	// Set defaults
@@ -85,6 +116,27 @@ func LoadConfig(path string) (*Config, error) {
 		},
 		S3: S3Config{
 			UpdateInterval: 5 * time.Minute,
+			LogPrefix:      "audit-logs/",
+		},
+		Logging: LoggingConfig{
+			Splunk: SplunkConfig{
+				Enabled:          false,
+				Sourcetype:       "dnshield:audit",
+				Index:            "dnshield-audit",
+				VerifyServerCert: true,
+				RetryMaxAttempts: 3,
+				RetryBackoffSecs: 5,
+			},
+			S3: S3LogConfig{
+				Enabled:       false,
+				BatchInterval: 1 * time.Hour,
+				Compression:   "gzip",
+				Retention:     90 * 24 * time.Hour, // 90 days
+			},
+			Local: LocalConfig{
+				BufferSize:   10000,
+				FallbackPath: "~/.dnshield/audit/buffer",
+			},
 		},
 		CaptivePortal: CaptivePortalConfig{
 			Enabled:            true,

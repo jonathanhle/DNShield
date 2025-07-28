@@ -38,6 +38,10 @@ s3:
   # AWS credentials (optional - remove to use IAM role or environment variables)
   # accessKeyId: "AKIAXXXXXXXXX"
   # secretKey: "xxxxxxxxxxxxx"
+  
+  # Prefix for audit logs (when logging.s3.enabled=true)
+  # Logs will be stored as: <bucket>/<logPrefix>/audit-<hostname>-<timestamp>.json.gz
+  logPrefix: "audit-logs/"
 
 # Blocking behavior
 blocking:
@@ -61,6 +65,31 @@ captivePortal:
   # - "jetblue.com"               # Airlines not in default list
   # - "portal.trainline.com"      # Train/transit WiFi
   # - "auth.mcdonaldswifi.com"    # Restaurant chains
+
+# Logging configuration
+logging:
+  # Splunk HTTP Event Collector (primary logging destination)
+  splunk:
+    enabled: false  # Set to true to enable Splunk logging
+    endpoint: "https://splunk.company.com:8088/services/collector"
+    token: "${SPLUNK_HEC_TOKEN}"  # HEC token from environment variable
+    index: "dnshield-audit"
+    sourcetype: "dnshield:audit"
+    verifyServerCert: true
+    retryMaxAttempts: 3
+    retryBackoffSecs: 5
+  
+  # S3 archive logging (secondary destination)
+  s3:
+    enabled: false  # Set to true to enable S3 archival
+    batchInterval: "1h"  # How often to upload logs to S3
+    compression: "gzip"  # Compression format
+    retention: "90d"     # How long to retain logs
+  
+  # Local buffering settings
+  local:
+    bufferSize: 10000  # In-memory event buffer size
+    fallbackPath: "~/.dnshield/audit/buffer"  # Local storage when remote fails
 
 # Test domains (remove in production)
 # These domains will be blocked for testing
