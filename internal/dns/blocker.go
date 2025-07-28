@@ -3,6 +3,8 @@ package dns
 import (
 	"strings"
 	"sync"
+	
+	"dnshield/internal/security"
 )
 
 // Blocker manages domain blocking
@@ -55,6 +57,11 @@ func (b *Blocker) UpdateAllowlist(domains []string) {
 	}
 }
 
+// UpdateWhitelist is a backward compatibility alias for UpdateAllowlist
+func (b *Blocker) UpdateWhitelist(domains []string) {
+	b.UpdateAllowlist(domains)
+}
+
 // UpdateMetadata updates user and group information for logging
 func (b *Blocker) UpdateMetadata(userEmail, groupName string) {
 	b.mu.Lock()
@@ -76,9 +83,11 @@ func (b *Blocker) SetAllowOnlyMode(enabled bool) {
 // 2. Allow-only mode: Block everything except domains in allowlist
 //
 // The lookup order is:
-//  1. Check allowlist (if allowed, never block)
-//  2. In allow-only mode: block if not in allowlist
-//  3. In normal mode: check blocklist
+//  1. Check if domain is a captive portal detection domain (never block)
+//  2. Check allowlist (if allowed, never block)
+//  3. In allow-only mode: block if not in allowlist
+//  4. In normal mode: check blocklist
+//  5. Check parent domains (e.g., sub.example.com checks example.com)
 //
 // Example:
 //
@@ -90,6 +99,11 @@ func (b *Blocker) IsBlocked(domain string) bool {
 	defer b.mu.RUnlock()
 
 	domain = strings.ToLower(domain)
+
+	// Never block captive portal detection domains
+	if security.IsCaptivePortalDomain(domain) {
+		return false
+	}
 
 	// Check allowlist first (allowlist always wins)
 	if b.allowlist[domain] {

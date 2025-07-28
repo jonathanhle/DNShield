@@ -12,10 +12,12 @@ import (
 )
 
 type Config struct {
-	Agent    AgentConfig    `yaml:"agent"`
-	S3       S3Config       `yaml:"s3"`
-	DNS      DNSConfig      `yaml:"dns"`
-	Blocking BlockingConfig `yaml:"blocking"`
+	Agent         AgentConfig         `yaml:"agent"`
+	S3            S3Config            `yaml:"s3"`
+	DNS           DNSConfig           `yaml:"dns"`
+	Blocking      BlockingConfig      `yaml:"blocking"`
+	CaptivePortal CaptivePortalConfig `yaml:"captivePortal"`
+	Logging       LoggingConfig       `yaml:"logging"`
 
 	// For demo purposes
 	TestDomains []string `yaml:"testDomains"`
@@ -36,6 +38,7 @@ type S3Config struct {
 	UpdateJitter   time.Duration `yaml:"updateJitter"` // Random delay to prevent thundering herd
 	AccessKeyID    string        `yaml:"accessKeyId,omitempty"`
 	SecretKey      string        `yaml:"secretKey,omitempty"`
+	LogPrefix      string        `yaml:"logPrefix,omitempty"`
 
 	// New path structure for enterprise rules
 	Paths S3Paths `yaml:"paths"`
@@ -61,6 +64,48 @@ type BlockingConfig struct {
 	BlockTTL      time.Duration `yaml:"blockTTL"`
 }
 
+type CaptivePortalConfig struct {
+	// Enable automatic captive portal detection
+	Enabled bool `yaml:"enabled"`
+	// Number of requests to captive portal domains within the time window to trigger bypass
+	DetectionThreshold int `yaml:"detectionThreshold"`
+	// Time window for counting captive portal requests
+	DetectionWindow time.Duration `yaml:"detectionWindow"`
+	// How long to bypass DNS filtering when captive portal is detected
+	BypassDuration time.Duration `yaml:"bypassDuration"`
+	// Additional captive portal domains to monitor (beyond the built-in list)
+	AdditionalDomains []string `yaml:"additionalDomains,omitempty"`
+}
+
+type LoggingConfig struct {
+	Splunk SplunkConfig `yaml:"splunk"`
+	S3     S3LogConfig  `yaml:"s3"`
+	Local  LocalConfig  `yaml:"local"`
+}
+
+type SplunkConfig struct {
+	Enabled            bool          `yaml:"enabled"`
+	Endpoint           string        `yaml:"endpoint"`
+	Token              string        `yaml:"token"`
+	Index              string        `yaml:"index"`
+	Sourcetype         string        `yaml:"sourcetype"`
+	VerifyServerCert   bool          `yaml:"verifyServerCert"`
+	RetryMaxAttempts   int           `yaml:"retryMaxAttempts"`
+	RetryBackoffSecs   int           `yaml:"retryBackoffSecs"`
+}
+
+type S3LogConfig struct {
+	Enabled        bool          `yaml:"enabled"`
+	BatchInterval  time.Duration `yaml:"batchInterval"`
+	Compression    string        `yaml:"compression"`
+	Retention      time.Duration `yaml:"retention"`
+}
+
+type LocalConfig struct {
+	BufferSize   int    `yaml:"bufferSize"`
+	FallbackPath string `yaml:"fallbackPath"`
+}
+
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(path string) (*Config, error) {
 	// Set defaults
@@ -84,6 +129,7 @@ func LoadConfig(path string) (*Config, error) {
 		S3: S3Config{
 			UpdateInterval: 5 * time.Minute,
 			UpdateJitter:   30 * time.Second,
+			LogPrefix:      "audit-logs/",
 			Paths: S3Paths{
 				Base:             "base.yaml",
 				DeviceMapping:    "users/device-mapping.yaml",
@@ -91,6 +137,32 @@ func LoadConfig(path string) (*Config, error) {
 				GroupsDir:        "groups/",
 				UserOverridesDir: "users/overrides/",
 			},
+		},
+		Logging: LoggingConfig{
+			Splunk: SplunkConfig{
+				Enabled:          false,
+				Sourcetype:       "dnshield:audit",
+				Index:            "dnshield-audit",
+				VerifyServerCert: true,
+				RetryMaxAttempts: 3,
+				RetryBackoffSecs: 5,
+			},
+			S3: S3LogConfig{
+				Enabled:       false,
+				BatchInterval: 1 * time.Hour,
+				Compression:   "gzip",
+				Retention:     90 * 24 * time.Hour, // 90 days
+			},
+			Local: LocalConfig{
+				BufferSize:   10000,
+				FallbackPath: "~/.dnshield/audit/buffer",
+			},
+		},
+		CaptivePortal: CaptivePortalConfig{
+			Enabled:            true,
+			DetectionThreshold: 3,
+			DetectionWindow:    10 * time.Second,
+			BypassDuration:     5 * time.Minute,
 		},
 	}
 

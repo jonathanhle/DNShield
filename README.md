@@ -30,6 +30,7 @@ DNShield is a lightweight, single-binary DNS filtering solution that provides tr
 - **🔐 Privacy First**: All filtering happens locally on the device
 - **⚡ High Performance**: Written in Go with built-in caching
 - **🍎 Native macOS**: Touch ID support, System Keychain integration
+- **✈️ Captive Portal Support**: Automatic detection and bypass for airport/hotel WiFi
 
 ## 🚀 Quick Start
 
@@ -87,7 +88,8 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 
 ### Enterprise Features
 - **Central Management**: S3-based rule distribution
-- **Audit Logging**: Comprehensive logs for compliance
+- **Audit Logging**: Comprehensive logs for compliance with remote streaming
+- **Remote Logging**: Real-time Splunk HEC integration + S3 archival
 - **MDM Support**: Zero-touch deployment via Jamf/Kandji
 - **Multi-Environment**: Dev/staging/prod rule sets
 - **Statistics**: Query metrics and reporting
@@ -151,6 +153,15 @@ agent:
   dnsPort: 53
   httpPort: 80
   httpsPort: 443
+
+# Remote logging (optional)
+logging:
+  splunk:
+    enabled: true
+    endpoint: "https://splunk.company.com:8088/services/collector"
+  s3:
+    enabled: true
+    batchInterval: "1h"
 ```
 
 ### S3 Rule Format
@@ -449,6 +460,25 @@ This guide includes:
 - Service logs: `Console.app` → "dnshield"
 - DNS queries: Enable debug logging
 - Certificate generation: Audit log enabled by default
+- Local audit logs: `~/.dnshield/audit/`
+- Remote logs: Splunk HEC (real-time) + S3 archive (hourly)
+
+### Remote Logging (New)
+DNShield supports enterprise logging to centralized systems:
+
+#### Splunk Integration
+- Real-time streaming via HTTP Event Collector (HEC)
+- Automatic retry with exponential backoff
+- Configurable index and sourcetype
+- Built-in buffering for reliability
+
+#### S3 Archive
+- Hourly compressed uploads to S3
+- Uses same bucket as rule distribution (different prefix)
+- Configurable retention policies
+- GZIP compression for cost efficiency
+
+See [Logging Setup Guide](docs/logging-setup.md) for configuration details.
 
 ### Metrics Available
 - DNS queries per second
@@ -456,6 +486,7 @@ This guide includes:
 - Blocked domains count
 - Certificate generation rate
 - Rule update status
+- Audit event volume by type
 
 ### Example Log Output
 ```
@@ -465,6 +496,17 @@ INFO[2024-01-20T10:30:45] HTTPS server listening on port 443
 INFO[2024-01-20T10:30:46] Fetched rules from S3 version=1.0 domains=5423
 INFO[2024-01-20T10:31:02] Blocked domain domain=doubleclick.net
 INFO[2024-01-20T10:31:02] Generated certificate domain=doubleclick.net duration=8ms
+```
+
+### Splunk Queries
+```spl
+# Top blocked domains
+index=dnshield-audit event_type="CERT_GENERATED"
+| top details.domain limit=20
+
+# Security violations
+index=dnshield-audit event_type="SECURITY_VIOLATION"
+| table _time host user message details
 ```
 
 ## 🛠️ Development
@@ -514,6 +556,11 @@ dnshield/
 
 **Certificate warnings still appear**
 - Ensure CA is installed: `./dnshield install-ca`
+
+**Captive portals not working (airport/hotel WiFi)**
+- DNShield automatically detects and bypasses captive portals
+- See [Captive Portal Support](docs/CAPTIVE_PORTALS.md) for details
+- Manual bypass: `sudo ./dnshield bypass enable`
 - Check Keychain Access for "DNShield" certificate
 - Clear browser cache or use incognito mode
 
