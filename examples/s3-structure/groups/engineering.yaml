@@ -1,0 +1,39 @@
+version: "2024.01.15"
+description: "Additional rules for engineering team"
+
+allow_domains:  # Engineering needs developer tools
+  - github.com
+  - gitlab.com
+  - bitbucket.org
+  - stackoverflow.com
+  - stackexchange.com
+  # Package repositories
+  - npmjs.com
+  - pypi.org
+  - rubygems.org
+  - crates.io
+  - pkg.go.dev
+  - mvnrepository.com
+  # Developer tools
+  - docker.com
+  - hub.docker.com
+  - kubernetes.io
+  - terraform.io
+  - aws.amazon.com
+  - console.aws.amazon.com
+  - cloud.google.com
+  - azure.microsoft.com
+  # Documentation
+  - developer.mozilla.org
+  - devdocs.io
+  - readthedocs.io
+  # Communication (limited)
+  - slack.com
+  - discord.com  # For open source communities
+
+block_domains:  # Additional blocks for engineering
+  - facebook.com  # Override base block for specific needs
+  - twitter.com   # Override base block for specific needs
+
+block_sources:  # Additional technical blocklists
+  - https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews/hosts

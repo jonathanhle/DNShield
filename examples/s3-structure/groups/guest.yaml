@@ -1,0 +1,57 @@
+version: "2024.01.15"
+description: "Guest WiFi access - Standard blocklist approach"
+
+# Standard mode: Start with base blocks, add more restrictions
+# This is the traditional approach - block specific categories
+
+block_domains:  # Additional blocks for guests
+  # Communication tools
+  - slack.com
+  - discord.com
+  - telegram.org
+  - whatsapp.com
+  - zoom.us
+  - teams.microsoft.com
+  - webex.com
+  
+  # File sharing
+  - dropbox.com
+  - drive.google.com
+  - onedrive.com
+  - box.com
+  - wetransfer.com
+  - mega.nz
+  - mediafire.com
+  
+  # Social media
+  - linkedin.com
+  - youtube.com
+  - vimeo.com
+  - twitch.tv
+  - tiktok.com
+  - snapchat.com
+  
+  # Entertainment
+  - netflix.com
+  - hulu.com
+  - spotify.com
+  - pandora.com
+  - apple.com/music
+  
+  # News sites (bandwidth concerns)
+  - cnn.com
+  - bbc.com
+  - reddit.com
+  - news.ycombinator.com
+
+# Allow some basic services
+allow_domains:
+  - google.com          # Search
+  - bing.com           # Search
+  - weather.com        # Weather
+  - maps.google.com    # Maps
+  - apple.com/maps     # Maps
+
+# Use aggressive blocklists for guests
+block_sources:
+  - https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn-social/hosts

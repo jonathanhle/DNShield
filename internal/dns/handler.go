@@ -7,30 +7,33 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
+	"dnshield/internal/config"
 )
 
 // Handler handles DNS queries
 type Handler struct {
-	blocker         *Blocker
-	upstreams       []string
-	blockIP         net.IP
-	cache           *Cache
-	statsCallback   func(query bool, blocked bool, cached bool)
-	blockedCallback func(domain, rule, clientIP string)
+	blocker          *Blocker
+	upstreams        []string
+	blockIP          net.IP
+	cache            *Cache
+	captiveDetector  *CaptivePortalDetector
+	statsCallback    func(query bool, blocked bool, cached bool)
+	blockedCallback  func(domain, rule, clientIP string)
 }
 
 // NewHandler creates a new DNS handler
-func NewHandler(blocker *Blocker, upstreams []string, blockIP string) *Handler {
+func NewHandler(blocker *Blocker, upstreams []string, blockIP string, captivePortalCfg *config.CaptivePortalConfig) *Handler {
 	ip := net.ParseIP(blockIP)
 	if ip == nil {
 		ip = net.ParseIP("127.0.0.1")
 	}
 
 	return &Handler{
-		blocker:   blocker,
-		upstreams: upstreams,
-		blockIP:   ip,
-		cache:     NewCache(10000, 1*time.Hour),
+		blocker:         blocker,
+		upstreams:       upstreams,
+		blockIP:         ip,
+		cache:           NewCache(10000, 1*time.Hour),
+		captiveDetector: NewCaptivePortalDetector(captivePortalCfg),
 	}
 }
 
@@ -71,6 +74,9 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}()
 	}
 
+	// Record request for captive portal detection
+	h.captiveDetector.RecordRequest(domain)
+
 	// Check cache first
 	if cached := h.cache.Get(domain, question.Qtype); cached != nil {
 		m.Answer = append(m.Answer, cached...)
@@ -81,9 +87,24 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	// Check if domain is blocked
-	if h.blocker.IsBlocked(domain) {
-		logrus.WithField("domain", domain).Info("Blocked domain")
+	// Check if domain is blocked (unless in bypass mode)
+	if !h.captiveDetector.IsInBypassMode() && h.blocker.IsBlocked(domain) {
+		// Get user/group metadata for logging
+		userEmail, groupName := h.blocker.GetMetadata()
+
+		logFields := logrus.Fields{
+			"domain": domain,
+		}
+
+		// Include user/group if they're set
+		if userEmail != "" {
+			logFields["user"] = userEmail
+		}
+		if groupName != "" {
+			logFields["group"] = groupName
+		}
+
+		logrus.WithFields(logFields).Info("Blocked domain")
 
 		// Get client IP
 		clientIP := ""
@@ -154,4 +175,9 @@ func (h *Handler) forwardToUpstream(w dns.ResponseWriter, r *dns.Msg, m *dns.Msg
 	// All upstreams failed
 	m.Rcode = dns.RcodeServerFailure
 	w.WriteMsg(m)
+}
+
+// GetCaptivePortalDetector returns the captive portal detector
+func (h *Handler) GetCaptivePortalDetector() *CaptivePortalDetector {
+	return h.captiveDetector
 }
