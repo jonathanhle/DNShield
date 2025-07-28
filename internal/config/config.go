@@ -22,10 +22,11 @@ type Config struct {
 }
 
 type AgentConfig struct {
-	DNSPort   int    `yaml:"dnsPort"`
-	HTTPPort  int    `yaml:"httpPort"`
-	HTTPSPort int    `yaml:"httpsPort"`
-	LogLevel  string `yaml:"logLevel"`
+	DNSPort      int    `yaml:"dnsPort"`
+	HTTPPort     int    `yaml:"httpPort"`
+	HTTPSPort    int    `yaml:"httpsPort"`
+	LogLevel     string `yaml:"logLevel"`
+	AllowDisable bool   `yaml:"allowDisable"`
 }
 
 type S3Config struct {
@@ -54,10 +55,11 @@ func LoadConfig(path string) (*Config, error) {
 	// Set defaults
 	cfg := &Config{
 		Agent: AgentConfig{
-			DNSPort:   53,
-			HTTPPort:  80,
-			HTTPSPort: 443,
-			LogLevel:  "info",
+			DNSPort:      53,
+			HTTPPort:     80,
+			HTTPSPort:    443,
+			LogLevel:     "info",
+			AllowDisable: true,
 		},
 		DNS: DNSConfig{
 			Upstreams: []string{"1.1.1.1", "8.8.8.8"},

@@ -109,6 +109,30 @@ Fetches and parses blocklists from S3 for enterprise-wide policy management.
 - YAML rule definitions
 - External blocklist URLs
 
+### 5. Network Manager (`internal/dns/network_manager.go`)
+
+Provides intelligent network-aware DNS management that adapts to different network environments.
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Network   │────▶│   Detector  │────▶│   Storage   │
+│   Change    │     │  (5s poll)  │     │ ~/.dnshield │
+└─────────────┘     └──────┬──────┘     └──────┬──────┘
+                           │                    │
+                           ▼                    ▼
+                    ┌─────────────┐      ┌─────────────┐
+                    │  Network ID │      │  DNS Config │
+                    │ SSID + MAC  │      │  Per Network│
+                    └─────────────┘      └─────────────┘
+```
+
+**Key Features:**
+- Detects network changes every 5 seconds
+- Stores DNS configuration per network
+- Unique network ID: SSID + Gateway MAC + Interface
+- Handles WiFi, Ethernet, VPN seamlessly
+- Restores network-specific DNS on pause
+
 ## Data Flow
 
 ### DNS Query Flow
@@ -129,6 +153,14 @@ Fetches and parses blocklists from S3 for enterprise-wide policy management.
 4. **Certificate Generation**: Create new cert if needed
 5. **TLS Handshake**: Complete with generated certificate
 6. **Block Page**: Serve custom HTML page
+
+### Network-Aware DNS Flow
+
+1. **Network Detection**: Poll network state every 5 seconds
+2. **Network Change**: Detect SSID, gateway, or interface change
+3. **DNS Capture**: Store current DNS settings for new network
+4. **Apply Filtering**: Set DNS to 127.0.0.1 on all interfaces
+5. **Pause/Resume**: Restore network-specific DNS when paused
 
 ## Performance Characteristics
 

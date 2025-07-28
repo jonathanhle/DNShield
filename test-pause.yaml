@@ -1,0 +1,20 @@
+agent:
+  dnsPort: 53
+  httpPort: 80
+  httpsPort: 443
+  logLevel: "info"
+  allowDisable: true  # Allow pause/resume functionality
+
+dns:
+  upstreams:
+    - "1.1.1.1"
+    - "8.8.8.8"
+  cacheSize: 10000
+  cacheTTL: "1h"
+
+# Test domains for demonstration
+testDomains:
+  - "doubleclick.net"
+  - "googleadservices.com"
+  - "facebook.com"
+  - "google-analytics.com"

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"dnshield/internal/ca"
+	"dnshield/internal/dns"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -69,6 +70,19 @@ func runInstallCA(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("\n✅ CA certificate installed successfully!")
+
+	// Initialize network-aware DNS manager to capture configurations
+	fmt.Println("\n📸 Initializing network-aware DNS management...")
+	dnsManager := dns.NewNetworkManager()
+	if err := dnsManager.Start(); err != nil {
+		logrus.WithError(err).Warn("Failed to initialize DNS manager")
+		fmt.Println("⚠️  Warning: Could not initialize DNS manager. Pause functionality may not work correctly.")
+	} else {
+		fmt.Println("✅ Network DNS management initialized")
+		fmt.Println("   DNS configurations will be captured automatically for each network")
+		dnsManager.Stop() // Just needed for initialization
+	}
+
 	fmt.Println("\n🎉 Setup complete! DNShield can now intercept HTTPS traffic.")
 	fmt.Println("\nNext steps:")
 	fmt.Println("1. Run the agent: sudo ./dnshield run")

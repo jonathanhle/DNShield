@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dnshield.statusbar</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/DNShield Status.app/Contents/MacOS/DNShieldStatus</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/dnshield-statusbar.err</string>
+    <key>StandardOutPath</key>
+    <string>/tmp/dnshield-statusbar.out</string>
+</dict>
+</plist>

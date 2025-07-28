@@ -1,8 +1,9 @@
-.PHONY: help build install install-secure secure run clean uninstall status test
+.PHONY: help build install install-secure secure run clean uninstall status test menubar
 
 # Configuration
 BINARY_NAME=dnshield
 VERSION=1.0.0
+MENUBAR_APP="DNShield Status.app"
 
 # Default target
 .DEFAULT_GOAL := help
@@ -37,6 +38,7 @@ help:
 	@echo "Development:"
 	@echo "  make test           Run tests"
 	@echo "  make fmt            Format code"
+	@echo "  make menubar        Build menu bar app"
 	@echo "  make dist           Create distribution package"
 
 build:
@@ -58,7 +60,9 @@ install: clean build
 	@echo ""
 	@echo "✅ Installation complete!"
 	@echo ""
-	@echo "Next: make run"
+	@echo "Next steps:"
+	@echo "  1. make run            # Start DNShield"
+	@echo "  2. make install-menubar # Install menu bar app (optional)"
 
 # Secure installation (System Keychain storage)
 install-secure: clean build
@@ -75,7 +79,9 @@ install-secure: clean build
 	@echo ""
 	@echo "✅ Secure installation complete!"
 	@echo ""
-	@echo "Next: make run"
+	@echo "Next steps:"
+	@echo "  1. make run            # Start DNShield"
+	@echo "  2. make install-menubar # Install menu bar app (optional)"
 
 # Complete secure setup and run with auto DNS in one command
 secure: install-secure
@@ -193,6 +199,18 @@ deps:
 	@echo "Downloading dependencies..."
 	@go mod download
 	@go mod tidy
+
+# Build menu bar app
+menubar:
+	@echo "Building DNShield menu bar app..."
+	@cd MenuBarApp && ./build.sh
+	@echo ""
+	@echo "Menu bar app built successfully!"
+	@echo "Install by opening: MenuBarApp/build/DNShieldStatus-1.0.0.dmg"
+
+# Install menu bar app to Applications
+install-menubar:
+	@cd MenuBarApp && ./install-menubar.sh
 
 # Show current configuration
 show-config:
