@@ -94,6 +94,7 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 - **MDM Support**: Zero-touch deployment via Jamf/Kandji
 - **Multi-Environment**: Dev/staging/prod rule sets
 - **Statistics**: Query metrics and reporting
+- **API RBAC**: Role-based access control for API endpoints (admin/operator/viewer)
 
 ### DNS Configuration Management
 - **Network-Aware**: Automatically detects and remembers DNS settings for each network

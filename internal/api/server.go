@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -20,6 +22,7 @@ type Server struct {
 	statusCallbacks []func() Status
 	server          *http.Server
 	dnsManager      dns.DNSManager
+	rbacManager     *RBACManager
 }
 
 type Statistics struct {
@@ -81,30 +84,34 @@ func NewServer(dnsManager dns.DNSManager) *Server {
 			AllowPause: true,
 			AllowQuit:  true,
 		},
-		dnsManager: dnsManager,
+		dnsManager:  dnsManager,
+		rbacManager: NewRBACManager(),
 	}
 }
 
 func (s *Server) Start(port int) error {
 	mux := http.NewServeMux()
 
-	// Core endpoints
-	mux.HandleFunc("/api/status", s.handleStatus)
-	mux.HandleFunc("/api/statistics", s.handleStatistics)
-	mux.HandleFunc("/api/recent-blocked", s.handleRecentBlocked)
-	mux.HandleFunc("/api/config", s.handleConfig)
+	// Public endpoints (no authentication required)
+	mux.HandleFunc("/api/health", s.PublicEndpoint(s.handleHealth))
 
-	// Control endpoints
-	mux.HandleFunc("/api/pause", s.handlePause)
-	mux.HandleFunc("/api/resume", s.handleResume)
-	mux.HandleFunc("/api/refresh-rules", s.handleRefreshRules)
-	mux.HandleFunc("/api/clear-cache", s.handleClearCache)
+	// Core endpoints (viewer access)
+	mux.HandleFunc("/api/status", s.RBACMiddleware(PermissionViewStatus, s.handleStatus))
+	mux.HandleFunc("/api/statistics", s.RBACMiddleware(PermissionViewStats, s.handleStatistics))
+	mux.HandleFunc("/api/recent-blocked", s.RBACMiddleware(PermissionViewStats, s.handleRecentBlocked))
+	mux.HandleFunc("/api/config", s.RBACMiddleware(PermissionViewConfig, s.handleConfig))
 
-	// WebSocket for real-time updates
-	mux.HandleFunc("/api/ws", s.handleWebSocket)
+	// Configuration modification endpoint (admin only)
+	mux.HandleFunc("/api/config/update", s.RBACMiddleware(PermissionModifyConfig, s.handleConfigUpdate))
 
-	// Health check
-	mux.HandleFunc("/api/health", s.handleHealth)
+	// Control endpoints (operator access)
+	mux.HandleFunc("/api/pause", s.RBACMiddleware(PermissionPauseProtection, s.handlePause))
+	mux.HandleFunc("/api/resume", s.RBACMiddleware(PermissionResumeProtection, s.handleResume))
+	mux.HandleFunc("/api/refresh-rules", s.RBACMiddleware(PermissionRefreshRules, s.handleRefreshRules))
+	mux.HandleFunc("/api/clear-cache", s.RBACMiddleware(PermissionClearCache, s.handleClearCache))
+
+	// WebSocket for real-time updates (viewer access)
+	mux.HandleFunc("/api/ws", s.RBACMiddleware(PermissionViewStatus, s.handleWebSocket))
 
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf("127.0.0.1:%d", port),
@@ -408,4 +415,55 @@ func (s *Server) UpdateStats(stats *Statistics) {
 	s.mu.Lock()
 	s.stats = stats
 	s.mu.Unlock()
+}
+
+// LoadAPIKeys loads API keys from the persistent store
+func (s *Server) LoadAPIKeys() error {
+	homeDir, _ := os.UserHomeDir()
+	storePath := filepath.Join(homeDir, ".dnshield", "api_keys.json")
+	
+	// If file doesn't exist, skip loading
+	if _, err := os.Stat(storePath); os.IsNotExist(err) {
+		logrus.Info("No API keys file found, starting with empty key store")
+		return nil
+	}
+	
+	data, err := os.ReadFile(storePath)
+	if err != nil {
+		return fmt.Errorf("failed to read API keys: %w", err)
+	}
+	
+	var store struct {
+		Keys map[string]struct {
+			Key       string    `json:"key"`
+			Role      string    `json:"role"`
+			CreatedAt time.Time `json:"created_at"`
+			ExpiresAt time.Time `json:"expires_at,omitempty"`
+			Disabled  bool      `json:"disabled"`
+		} `json:"keys"`
+	}
+	
+	if err := json.Unmarshal(data, &store); err != nil {
+		return fmt.Errorf("failed to parse API keys: %w", err)
+	}
+	
+	// Load keys into RBAC manager
+	for _, info := range store.Keys {
+		if info.Disabled {
+			continue
+		}
+		
+		var expiration time.Duration
+		if !info.ExpiresAt.IsZero() {
+			expiration = time.Until(info.ExpiresAt)
+			if expiration < 0 {
+				continue // Skip expired keys
+			}
+		}
+		
+		s.rbacManager.AddAPIKey(info.Key, Role(info.Role), expiration)
+	}
+	
+	logrus.Infof("Loaded %d active API keys", len(s.rbacManager.apiKeys))
+	return nil
 }
