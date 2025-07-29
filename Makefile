@@ -232,7 +232,7 @@ build-universal:
 	@GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY_NAME)-arm64 .
 	@lipo -create -output $(BINARY_NAME) $(BINARY_NAME)-amd64 $(BINARY_NAME)-arm64
 	@rm -f $(BINARY_NAME)-amd64 $(BINARY_NAME)-arm64
-	@codesign --force --deep --sign - $(BINARY_NAME)
+	@codesign --force --deep --sign - --entitlements dnshield.entitlements $(BINARY_NAME)
 	@echo "Universal binary created and signed"
 
 # Create distribution package
