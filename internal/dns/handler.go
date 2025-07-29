@@ -252,4 +252,7 @@ func (h *Handler) Stop() {
 	if h.rateLimiter != nil {
 		h.rateLimiter.Stop()
 	}
+	if h.cache != nil {
+		h.cache.Stop()
+	}
 }
