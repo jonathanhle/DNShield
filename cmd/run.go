@@ -21,6 +21,7 @@ import (
 	"dnshield/internal/ca"
 	"dnshield/internal/config"
 	"dnshield/internal/dns"
+	"dnshield/internal/logging"
 	"dnshield/internal/proxy"
 	"dnshield/internal/rules"
 	"dnshield/internal/security"
@@ -94,7 +95,23 @@ func runAgent(opts *RunOptions) error {
 		FullTimestamp: true,
 	})
 
+	// Install sanitizing hook to prevent sensitive data leakage
+	enablePII := cfg.Agent.LogLevel == "debug" && os.Getenv("DNSHIELD_ENABLE_PII_LOGGING") == "true"
+	logging.InstallSanitizingHook(enablePII)
+
 	logrus.Info("Starting DNShield")
+
+	// Validate configuration
+	if err := config.ValidateConfig(cfg); err != nil {
+		return fmt.Errorf("invalid configuration: %v", err)
+	}
+
+	// Check for security issues in configuration
+	config.ValidateCredentialSecurity(cfg)
+
+	// Log sanitized configuration
+	sanitizedConfig := config.SanitizeConfigForLogging(cfg)
+	logrus.WithFields(logrus.Fields(sanitizedConfig)).Info("Configuration loaded")
 
 	// Apply security hardening before doing anything else
 	hardening := security.NewHardening()

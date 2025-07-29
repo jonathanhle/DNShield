@@ -94,10 +94,13 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	question := r.Question[0]
 	domain := strings.TrimSuffix(question.Name, ".")
 
-	logrus.WithFields(logrus.Fields{
-		"domain": domain,
-		"type":   dns.TypeToString[question.Qtype],
-	}).Debug("DNS query received")
+	// Only log in debug mode with PII enabled
+	if logrus.GetLevel() == logrus.DebugLevel {
+		logrus.WithFields(logrus.Fields{
+			"domain": domain,
+			"type":   dns.TypeToString[question.Qtype],
+		}).Debug("DNS query received")
+	}
 
 	// Record query
 	if h.statsCallback != nil {
