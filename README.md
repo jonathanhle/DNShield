@@ -207,6 +207,49 @@ export AWS_REGION="us-east-1"
 export DNSHIELD_CONFIG="/path/to/config.yaml"
 ```
 
+## 🔑 API Authentication
+
+DNShield provides a REST API on port 5353 for integration with menu bar apps and other tools. The API uses bearer token authentication for security.
+
+### Generate API Token
+```bash
+# Generate a new API token
+./dnshield api-token generate
+
+# Show current token
+./dnshield api-token show
+```
+
+### API Endpoints
+
+**Public Endpoints (No Auth Required):**
+- `GET /api/health` - Health check
+- `GET /api/status` - Service status
+
+**Protected Endpoints (Auth Required):**
+- `GET /api/statistics` - Query and blocking statistics
+- `GET /api/recent-blocked` - Recently blocked domains
+- `GET /api/config` - Current configuration
+- `POST /api/pause` - Pause DNS filtering
+- `POST /api/resume` - Resume DNS filtering
+- `POST /api/refresh-rules` - Refresh blocking rules
+- `POST /api/clear-cache` - Clear DNS cache
+
+### Using the API
+```bash
+# Example: Get statistics
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:5353/api/statistics
+
+# Example: Pause filtering for 30 minutes
+curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"duration": "30m"}' \
+  http://localhost:5353/api/pause
+```
+
+### Rate Limiting
+All API endpoints are rate-limited to 100 requests per minute per IP address.
+
 ## 🚚 Deployment
 
 ### Manual Installation

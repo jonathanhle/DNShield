@@ -20,6 +20,8 @@ type Server struct {
 	statusCallbacks []func() Status
 	server          *http.Server
 	dnsManager      dns.DNSManager
+	authManager     *APITokenManager
+	rateLimiter     *RateLimiter
 }
 
 type Statistics struct {
@@ -81,30 +83,38 @@ func NewServer(dnsManager dns.DNSManager) *Server {
 			AllowPause: true,
 			AllowQuit:  true,
 		},
-		dnsManager: dnsManager,
+		dnsManager:  dnsManager,
+		authManager: NewAPITokenManager(),
+		rateLimiter: NewRateLimiter(100, time.Minute), // 100 requests per minute per IP
 	}
 }
 
 func (s *Server) Start(port int) error {
 	mux := http.NewServeMux()
 
+	// Apply rate limiting to all endpoints
+	rl := s.rateLimiter.RateLimitMiddleware
+
+	// Public endpoints (no auth required)
+	mux.HandleFunc("/api/health", rl(PublicEndpoint(s.handleHealth)))
+	mux.HandleFunc("/api/status", rl(PublicEndpoint(s.handleStatus)))
+
+	// Protected endpoints (auth required)
+	auth := s.authManager.AuthMiddleware
+	
 	// Core endpoints
-	mux.HandleFunc("/api/status", s.handleStatus)
-	mux.HandleFunc("/api/statistics", s.handleStatistics)
-	mux.HandleFunc("/api/recent-blocked", s.handleRecentBlocked)
-	mux.HandleFunc("/api/config", s.handleConfig)
+	mux.HandleFunc("/api/statistics", rl(auth(s.handleStatistics)))
+	mux.HandleFunc("/api/recent-blocked", rl(auth(s.handleRecentBlocked)))
+	mux.HandleFunc("/api/config", rl(auth(s.handleConfig)))
 
 	// Control endpoints
-	mux.HandleFunc("/api/pause", s.handlePause)
-	mux.HandleFunc("/api/resume", s.handleResume)
-	mux.HandleFunc("/api/refresh-rules", s.handleRefreshRules)
-	mux.HandleFunc("/api/clear-cache", s.handleClearCache)
+	mux.HandleFunc("/api/pause", rl(auth(s.handlePause)))
+	mux.HandleFunc("/api/resume", rl(auth(s.handleResume)))
+	mux.HandleFunc("/api/refresh-rules", rl(auth(s.handleRefreshRules)))
+	mux.HandleFunc("/api/clear-cache", rl(auth(s.handleClearCache)))
 
 	// WebSocket for real-time updates
-	mux.HandleFunc("/api/ws", s.handleWebSocket)
-
-	// Health check
-	mux.HandleFunc("/api/health", s.handleHealth)
+	mux.HandleFunc("/api/ws", rl(auth(s.handleWebSocket)))
 
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf("127.0.0.1:%d", port),
