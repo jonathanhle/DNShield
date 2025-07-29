@@ -17,23 +17,36 @@ type Handler struct {
 	blockIP          net.IP
 	cache            *Cache
 	captiveDetector  *CaptivePortalDetector
+	rateLimiter      *RateLimiter
 	statsCallback    func(query bool, blocked bool, cached bool)
 	blockedCallback  func(domain, rule, clientIP string)
 }
 
 // NewHandler creates a new DNS handler
-func NewHandler(blocker *Blocker, upstreams []string, blockIP string, captivePortalCfg *config.CaptivePortalConfig) *Handler {
+func NewHandler(blocker *Blocker, dnsCfg *config.DNSConfig, blockIP string, captivePortalCfg *config.CaptivePortalConfig) *Handler {
 	ip := net.ParseIP(blockIP)
 	if ip == nil {
 		ip = net.ParseIP("127.0.0.1")
 	}
 
+	// Use configured rate limit values or defaults
+	rateLimitQueries := dnsCfg.RateLimitQueries
+	if rateLimitQueries <= 0 {
+		rateLimitQueries = 100 // Default: 100 queries per second
+	}
+	
+	rateLimitWindow := dnsCfg.RateLimitWindow
+	if rateLimitWindow <= 0 {
+		rateLimitWindow = time.Second // Default: 1 second window
+	}
+
 	return &Handler{
 		blocker:         blocker,
-		upstreams:       upstreams,
+		upstreams:       dnsCfg.Upstreams,
 		blockIP:         ip,
-		cache:           NewCache(10000, 1*time.Hour),
+		cache:           NewCache(dnsCfg.CacheSize, dnsCfg.CacheTTL),
 		captiveDetector: NewCaptivePortalDetector(captivePortalCfg),
+		rateLimiter:     NewRateLimiter(rateLimitQueries, rateLimitWindow),
 	}
 }
 
@@ -52,6 +65,25 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Compress = true
+
+	// Get client IP for rate limiting
+	clientIP := net.IPv4(127, 0, 0, 1) // Default to localhost
+	if addr, ok := w.RemoteAddr().(*net.UDPAddr); ok {
+		clientIP = addr.IP
+	}
+
+	// Check rate limit
+	if !h.rateLimiter.Allow(clientIP) {
+		logrus.WithFields(logrus.Fields{
+			"client": clientIP.String(),
+			"rate":   h.rateLimiter.GetClientRate(clientIP),
+		}).Warn("DNS query rate limit exceeded")
+		
+		// Return REFUSED for rate limited queries
+		m.Rcode = dns.RcodeRefused
+		w.WriteMsg(m)
+		return
+	}
 
 	// Handle only A and AAAA queries
 	if len(r.Question) == 0 {

@@ -54,9 +54,11 @@ type S3Paths struct {
 }
 
 type DNSConfig struct {
-	Upstreams []string      `yaml:"upstreams"`
-	CacheSize int           `yaml:"cacheSize"`
-	CacheTTL  time.Duration `yaml:"cacheTTL"`
+	Upstreams        []string      `yaml:"upstreams"`
+	CacheSize        int           `yaml:"cacheSize"`
+	CacheTTL         time.Duration `yaml:"cacheTTL"`
+	RateLimitQueries int           `yaml:"rateLimitQueries"` // Queries per second per IP
+	RateLimitWindow  time.Duration `yaml:"rateLimitWindow"`  // Rate limit window
 }
 
 type BlockingConfig struct {
@@ -119,9 +121,11 @@ func LoadConfig(path string) (*Config, error) {
 			AllowDisable: true,
 		},
 		DNS: DNSConfig{
-			Upstreams: []string{"1.1.1.1", "8.8.8.8"},
-			CacheSize: 10000,
-			CacheTTL:  1 * time.Hour,
+			Upstreams:        []string{"1.1.1.1", "8.8.8.8"},
+			CacheSize:        10000,
+			CacheTTL:         1 * time.Hour,
+			RateLimitQueries: 100,          // 100 queries per second per IP
+			RateLimitWindow:  1 * time.Second,
 		},
 		Blocking: BlockingConfig{
 			DefaultAction: "block",
