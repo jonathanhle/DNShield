@@ -8,6 +8,7 @@ import (
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"dnshield/internal/config"
+	"dnshield/internal/utils"
 )
 
 // Handler handles DNS queries
@@ -40,11 +41,24 @@ func NewHandler(blocker *Blocker, dnsCfg *config.DNSConfig, blockIP string, capt
 		rateLimitWindow = time.Second // Default: 1 second window
 	}
 
+	// Validate and cap cache size
+	cacheSize := dnsCfg.CacheSize
+	if cacheSize <= 0 {
+		cacheSize = 10000 // Default
+	}
+	if cacheSize > utils.MaxCacheEntries {
+		logrus.WithFields(logrus.Fields{
+			"requested": cacheSize,
+			"maximum":   utils.MaxCacheEntries,
+		}).Warn("DNS cache size exceeds maximum, capping to limit")
+		cacheSize = utils.MaxCacheEntries
+	}
+
 	return &Handler{
 		blocker:         blocker,
 		upstreams:       dnsCfg.Upstreams,
 		blockIP:         ip,
-		cache:           NewCache(dnsCfg.CacheSize, dnsCfg.CacheTTL),
+		cache:           NewCache(cacheSize, dnsCfg.CacheTTL),
 		captiveDetector: NewCaptivePortalDetector(captivePortalCfg),
 		rateLimiter:     NewRateLimiter(rateLimitQueries, rateLimitWindow),
 	}
