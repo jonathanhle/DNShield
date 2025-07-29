@@ -141,7 +141,9 @@ func runAgent(opts *RunOptions) error {
 	// Load initial test domains
 	if len(cfg.TestDomains) > 0 {
 		logrus.WithField("count", len(cfg.TestDomains)).Info("Loading test domains")
-		blocker.UpdateDomains(cfg.TestDomains)
+		if err := blocker.UpdateDomains(cfg.TestDomains); err != nil {
+			logrus.WithError(err).Error("Failed to load test domains")
+		}
 	}
 
 	// Create network-aware DNS manager for handling pause/resume
@@ -374,8 +376,14 @@ func updateEnterpriseRules(fetcher *rules.EnterpriseFetcher, parser *rules.Parse
 	finalBlockDomains := rules.MergeDomains(blockDomains)
 
 	// Update blocker
-	blocker.UpdateDomains(finalBlockDomains)
-	blocker.UpdateAllowlist(allowDomains)
+	if err := blocker.UpdateDomains(finalBlockDomains); err != nil {
+		logrus.WithError(err).Error("Failed to update blocked domains")
+		return
+	}
+	if err := blocker.UpdateAllowlist(allowDomains); err != nil {
+		logrus.WithError(err).Error("Failed to update allowlist")
+		return
+	}
 	blocker.SetAllowOnlyMode(allowOnlyMode)
 
 	logFields := logrus.Fields{

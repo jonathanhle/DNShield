@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"dnshield/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -44,14 +44,16 @@ var (
 	apiKeyExpiration string
 )
 
-func init() {
-	rootCmd.AddCommand(apikeyCmd)
+// NewAPIKeyCmd creates the apikey command
+func NewAPIKeyCmd() *cobra.Command {
 	apikeyCmd.AddCommand(generateAPIKeyCmd)
 	apikeyCmd.AddCommand(listAPIKeysCmd)
 	apikeyCmd.AddCommand(revokeAPIKeyCmd)
 
 	generateAPIKeyCmd.Flags().StringVarP(&apiKeyRole, "role", "r", "viewer", "Role for the API key (admin, operator, viewer)")
 	generateAPIKeyCmd.Flags().StringVarP(&apiKeyExpiration, "expires", "e", "", "Expiration duration (e.g., 24h, 7d, 30d)")
+	
+	return apikeyCmd
 }
 
 // APIKeyStore manages persistent storage of API keys
@@ -82,8 +84,17 @@ func loadAPIKeyStore() (*APIKeyStore, error) {
 	}
 	
 	// If file doesn't exist, return empty store
-	if _, err := os.Stat(storePath); os.IsNotExist(err) {
+	info, err := os.Stat(storePath)
+	if os.IsNotExist(err) {
 		return &APIKeyStore{Keys: make(map[string]*APIKeyInfo)}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	
+	// Check file size
+	if info.Size() > utils.MaxConfigFileSize {
+		return nil, fmt.Errorf("API key store file exceeds maximum size of %d bytes", utils.MaxConfigFileSize)
 	}
 	
 	data, err := os.ReadFile(storePath)

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"dnshield/internal/dns"
+	"dnshield/internal/utils"
 	"github.com/sirupsen/logrus"
 )
 
@@ -423,9 +424,18 @@ func (s *Server) LoadAPIKeys() error {
 	storePath := filepath.Join(homeDir, ".dnshield", "api_keys.json")
 	
 	// If file doesn't exist, skip loading
-	if _, err := os.Stat(storePath); os.IsNotExist(err) {
+	info, err := os.Stat(storePath)
+	if os.IsNotExist(err) {
 		logrus.Info("No API keys file found, starting with empty key store")
 		return nil
+	}
+	if err != nil {
+		return err
+	}
+	
+	// Check file size
+	if info.Size() > utils.MaxConfigFileSize {
+		return fmt.Errorf("API key store file exceeds maximum size of %d bytes", utils.MaxConfigFileSize)
 	}
 	
 	data, err := os.ReadFile(storePath)

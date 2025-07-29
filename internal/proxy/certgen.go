@@ -13,6 +13,7 @@ import (
 	"dnshield/internal/audit"
 	"dnshield/internal/ca"
 	"dnshield/internal/security"
+	"dnshield/internal/utils"
 	"github.com/sirupsen/logrus"
 )
 
@@ -131,6 +132,23 @@ func (g *CertGenerator) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certifi
 	expiresAt := time.Now().Add(cacheTTL)
 
 	g.mu.Lock()
+	// Check cache size limit
+	if len(g.cache) >= utils.MaxCertCacheEntries {
+		// Remove ~10% of oldest entries
+		count := 0
+		for k := range g.cache {
+			delete(g.cache, k)
+			count++
+			if count > utils.MaxCertCacheEntries/10 {
+				break
+			}
+		}
+		logrus.WithFields(logrus.Fields{
+			"evicted": count,
+			"maxSize": utils.MaxCertCacheEntries,
+		}).Warn("Certificate cache at capacity, evicted entries")
+	}
+	
 	g.cache[domain] = &cachedCert{
 		cert:      tlsCert,
 		expiresAt: expiresAt,

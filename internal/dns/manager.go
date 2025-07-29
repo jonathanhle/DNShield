@@ -293,6 +293,18 @@ func (m *Manager) saveDNSConfig(config *DNSConfiguration) error {
 }
 
 func (m *Manager) loadDNSConfig() (*DNSConfiguration, error) {
+	// Check file size first
+	info, err := os.Stat(m.configPath)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Use a smaller limit for DNS config files (100KB should be more than enough)
+	const maxDNSConfigSize = 100 * 1024
+	if info.Size() > maxDNSConfigSize {
+		return nil, fmt.Errorf("DNS config file exceeds maximum size of %d bytes", maxDNSConfigSize)
+	}
+	
 	data, err := os.ReadFile(m.configPath)
 	if err != nil {
 		return nil, err

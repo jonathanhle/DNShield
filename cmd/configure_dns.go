@@ -371,12 +371,24 @@ func restoreDNS() error {
 
 	configPath := getDNSConfigPath()
 
+	// Check file size first
+	info, err := os.Stat(configPath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("no DNS backup found. Run 'configure-dns' first to create a backup")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to stat backup: %v", err)
+	}
+	
+	// Use a smaller limit for DNS backup files (100KB should be more than enough)
+	const maxDNSBackupSize = 100 * 1024
+	if info.Size() > maxDNSBackupSize {
+		return fmt.Errorf("DNS backup file exceeds maximum size of %d bytes", maxDNSBackupSize)
+	}
+
 	// Read backup file
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("no DNS backup found. Run 'configure-dns' first to create a backup")
-		}
 		return fmt.Errorf("failed to read backup: %v", err)
 	}
 

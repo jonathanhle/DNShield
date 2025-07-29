@@ -7,11 +7,11 @@ package rules
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
 	"dnshield/internal/config"
+	"dnshield/internal/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -84,10 +84,15 @@ func (f *Fetcher) FetchRules() (*config.Rules, error) {
 	}
 	defer resp.Body.Close()
 
-	// Read response body
-	data, err := io.ReadAll(resp.Body)
+	// Read response body with size limit
+	data, err := utils.ReadAllLimited(resp.Body, utils.MaxRulesFileSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read rules: %v", err)
+	}
+
+	// Validate YAML before parsing
+	if err := utils.SafeYAMLUnmarshal(data, nil, utils.MaxRulesFileSize); err != nil {
+		return nil, fmt.Errorf("YAML validation failed: %v", err)
 	}
 
 	// Parse YAML
@@ -119,12 +124,19 @@ func (f *Fetcher) FetchRulesWithFallback(localPath string) (*config.Rules, error
 
 	// Try local file
 	if localPath != "" {
-		data, err := os.ReadFile(localPath)
-		if err == nil {
-			var localRules config.Rules
-			if err := yaml.Unmarshal(data, &localRules); err == nil {
-				logrus.Info("Using local rules file")
-				return &localRules, nil
+		// Check file size
+		info, err := os.Stat(localPath)
+		if err == nil && info.Size() <= utils.MaxRulesFileSize {
+			data, err := os.ReadFile(localPath)
+			if err == nil {
+				// Validate YAML before parsing
+				if err := utils.SafeYAMLUnmarshal(data, nil, utils.MaxRulesFileSize); err == nil {
+					var localRules config.Rules
+					if err := yaml.Unmarshal(data, &localRules); err == nil {
+						logrus.Info("Using local rules file")
+						return &localRules, nil
+					}
+				}
 			}
 		}
 	}

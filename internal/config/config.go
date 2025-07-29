@@ -5,7 +5,9 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -184,9 +186,24 @@ func LoadConfig(path string) (*Config, error) {
 
 	// If we have a config file, load it
 	if path != "" {
+		// Check file size before reading
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, err
+		}
+		
+		if info.Size() > 1024*1024 { // 1MB limit for config files
+			return nil, fmt.Errorf("config file exceeds maximum size of 1MB")
+		}
+		
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
+		}
+
+		// Validate YAML before parsing
+		if strings.Count(string(data), "&") > 100 || strings.Count(string(data), "*") > 100 {
+			return nil, fmt.Errorf("config file contains too many YAML anchors/aliases")
 		}
 
 		if err := yaml.Unmarshal(data, cfg); err != nil {
