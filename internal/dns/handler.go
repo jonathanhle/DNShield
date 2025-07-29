@@ -19,6 +19,7 @@ type Handler struct {
 	cache            *Cache
 	captiveDetector  *CaptivePortalDetector
 	rateLimiter      *RateLimiter
+	queryLimiter     *utils.ConcurrencyLimiter
 	statsCallback    func(query bool, blocked bool, cached bool)
 	blockedCallback  func(domain, rule, clientIP string)
 }
@@ -61,6 +62,7 @@ func NewHandler(blocker *Blocker, dnsCfg *config.DNSConfig, blockIP string, capt
 		cache:           NewCache(cacheSize, dnsCfg.CacheTTL),
 		captiveDetector: NewCaptivePortalDetector(captivePortalCfg),
 		rateLimiter:     NewRateLimiter(rateLimitQueries, rateLimitWindow),
+		queryLimiter:    utils.NewConcurrencyLimiter(utils.MaxConcurrentDNSQueries),
 	}
 }
 
@@ -98,6 +100,20 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		w.WriteMsg(m)
 		return
 	}
+
+	// Check concurrent query limit
+	if !h.queryLimiter.TryAcquire() {
+		logrus.WithFields(logrus.Fields{
+			"client": clientIP.String(),
+			"max":    utils.MaxConcurrentDNSQueries,
+		}).Warn("DNS concurrent query limit exceeded")
+		
+		// Return SERVFAIL for concurrent limit
+		m.Rcode = dns.RcodeServerFailure
+		w.WriteMsg(m)
+		return
+	}
+	defer h.queryLimiter.Release()
 
 	// Handle only A and AAAA queries
 	if len(r.Question) == 0 {

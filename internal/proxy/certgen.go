@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -25,16 +26,18 @@ type cachedCert struct {
 
 // CertGenerator generates certificates dynamically
 type CertGenerator struct {
-	ca    ca.Manager
-	cache map[string]*cachedCert
-	mu    sync.RWMutex
+	ca       ca.Manager
+	cache    map[string]*cachedCert
+	mu       sync.RWMutex
+	genLimit *utils.ConcurrencyLimiter
 }
 
 // NewCertGenerator creates a new certificate generator
 func NewCertGenerator(caManager ca.Manager) *CertGenerator {
 	gen := &CertGenerator{
-		ca:    caManager,
-		cache: make(map[string]*cachedCert),
+		ca:       caManager,
+		cache:    make(map[string]*cachedCert),
+		genLimit: utils.NewConcurrencyLimiter(utils.MaxConcurrentCertGen),
 	}
 
 	// Start cache cleanup goroutine
@@ -84,6 +87,13 @@ func (g *CertGenerator) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certifi
 	} else {
 		g.mu.RUnlock()
 	}
+
+	// Check concurrent generation limit
+	if !g.genLimit.TryAcquire() {
+		logrus.WithField("domain", domain).Warn("Certificate generation concurrency limit exceeded")
+		return nil, fmt.Errorf("too many concurrent certificate generations")
+	}
+	defer g.genLimit.Release()
 
 	// Generate new certificate
 	start := time.Now()
