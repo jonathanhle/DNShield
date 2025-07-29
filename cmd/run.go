@@ -226,6 +226,11 @@ func runAgent(opts *RunOptions) error {
 		}
 	})
 
+	// Load API keys
+	if err := apiServer.LoadAPIKeys(); err != nil {
+		logrus.WithError(err).Warn("Failed to load API keys")
+	}
+
 	// Update API server configuration
 	apiServer.UpdateConfig(&api.Config{
 		AllowPause:     cfg.Agent.AllowDisable,
