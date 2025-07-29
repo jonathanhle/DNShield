@@ -5,6 +5,7 @@ import (
 	"time"
 	
 	"github.com/spf13/cobra"
+	"dnshield/internal/auth"
 )
 
 // NewBypassCmd creates the bypass command
@@ -21,6 +22,14 @@ This temporarily disables DNS filtering to allow captive portal authentication.`
 		Short: "Enable DNS filtering bypass",
 		Long:  `Temporarily disable DNS filtering to allow captive portal access.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Require authentication for bypass operations
+			token, _ := cmd.Flags().GetString("token")
+			tm := auth.NewTokenManager()
+			
+			if err := tm.ValidateToken(token); err != nil {
+				return fmt.Errorf("authentication failed: %w", err)
+			}
+			
 			duration, _ := cmd.Flags().GetDuration("duration")
 			
 			// This would normally communicate with the running service
@@ -38,6 +47,14 @@ This temporarily disables DNS filtering to allow captive portal authentication.`
 		Short: "Disable DNS filtering bypass",
 		Long:  `Re-enable DNS filtering immediately.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Require authentication for bypass operations
+			token, _ := cmd.Flags().GetString("token")
+			tm := auth.NewTokenManager()
+			
+			if err := tm.ValidateToken(token); err != nil {
+				return fmt.Errorf("authentication failed: %w", err)
+			}
+			
 			fmt.Println("DNS filtering bypass would be disabled")
 			fmt.Println("Note: This command requires the DNShield service to be running.")
 			
@@ -62,7 +79,13 @@ This temporarily disables DNS filtering to allow captive portal authentication.`
 	bypassCmd.AddCommand(bypassDisableCmd)
 	bypassCmd.AddCommand(bypassStatusCmd)
 	
+	// Add authentication flags to commands that modify state
+	bypassEnableCmd.Flags().String("token", "", "Authentication token (required)")
+	bypassEnableCmd.MarkFlagRequired("token")
 	bypassEnableCmd.Flags().Duration("duration", 5*time.Minute, "Duration to bypass DNS filtering")
+	
+	bypassDisableCmd.Flags().String("token", "", "Authentication token (required)")
+	bypassDisableCmd.MarkFlagRequired("token")
 	
 	return bypassCmd
 }
