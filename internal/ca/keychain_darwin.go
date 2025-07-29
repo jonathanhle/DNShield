@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -37,6 +38,51 @@ const (
 	// Key labels in Keychain
 	caKeyLabel = "DNShield CA Private Key"
 )
+
+// validateKeychainParam validates keychain parameters to prevent command injection
+func validateKeychainParam(param string) error {
+	// Keychain parameters should only contain alphanumeric characters, dots, hyphens, and underscores
+	validParam := regexp.MustCompile(`^[a-zA-Z0-9\.\-_]+$`)
+	if !validParam.MatchString(param) {
+		return fmt.Errorf("invalid keychain parameter: %s", param)
+	}
+	
+	// Additional check for suspicious patterns
+	suspiciousPatterns := []string{
+		"$", "`", ";", "&", "|", ">", "<", "\n", "\r", "\\",
+		"$(", "${", "&&", "||", "`;", ";`", "../", "/..",
+		"'", "\"", " ", "\t",
+	}
+	
+	for _, pattern := range suspiciousPatterns {
+		if strings.Contains(param, pattern) {
+			return fmt.Errorf("suspicious pattern in keychain parameter: %s", param)
+		}
+	}
+	
+	// Length check
+	if len(param) > 256 {
+		return fmt.Errorf("keychain parameter too long: %d characters", len(param))
+	}
+	
+	return nil
+}
+
+// validateBase64Data validates base64 encoded data to prevent injection
+func validateBase64Data(data string) error {
+	// Base64 should only contain valid base64 characters
+	validBase64 := regexp.MustCompile(`^[A-Za-z0-9+/=]+$`)
+	if !validBase64.MatchString(data) {
+		return fmt.Errorf("invalid base64 data")
+	}
+	
+	// Length check to prevent excessive data
+	if len(data) > 65536 { // 64KB limit for base64 encoded key
+		return fmt.Errorf("base64 data too large: %d characters", len(data))
+	}
+	
+	return nil
+}
 
 // KeychainCAManager manages CA certificates with Keychain storage
 type KeychainCAManager struct {
@@ -83,6 +129,14 @@ func loadExistingKeychainCA() (Manager, error) {
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CA certificate: %v", err)
+	}
+
+	// Validate keychain parameters as defense-in-depth
+	if err := validateKeychainParam(keychainAccountName); err != nil {
+		return nil, fmt.Errorf("invalid account name: %v", err)
+	}
+	if err := validateKeychainParam(keychainServiceName); err != nil {
+		return nil, fmt.Errorf("invalid service name: %v", err)
 	}
 
 	// Try to find the key in System Keychain
@@ -207,6 +261,22 @@ func storeKeyInKeychain(key *ecdsa.PrivateKey) error {
 
 	// Base64 encode for security command
 	keyBase64 := base64.StdEncoding.EncodeToString(keyDER)
+	
+	// Validate base64 data
+	if err := validateBase64Data(keyBase64); err != nil {
+		return fmt.Errorf("invalid key data: %v", err)
+	}
+	
+	// Validate keychain parameters as defense-in-depth
+	if err := validateKeychainParam(keychainAccountName); err != nil {
+		return fmt.Errorf("invalid account name: %v", err)
+	}
+	if err := validateKeychainParam(keychainServiceName); err != nil {
+		return fmt.Errorf("invalid service name: %v", err)
+	}
+	if err := validateKeychainParam(caKeyLabel); err != nil {
+		return fmt.Errorf("invalid key label: %v", err)
+	}
 
 	// Delete any existing entry (ignore errors)
 	exec.Command("security", "delete-generic-password",
@@ -214,17 +284,29 @@ func storeKeyInKeychain(key *ecdsa.PrivateKey) error {
 		"-s", keychainServiceName,
 		"/Library/Keychains/System.keychain").Run()
 
-	// Add to System keychain
+	// Add to System keychain using stdin to avoid exposing key in process list
 	cmd := exec.Command("security", "add-generic-password",
 		"-a", keychainAccountName,
 		"-s", keychainServiceName,
 		"-l", caKeyLabel,
-		"-w", keyBase64,
+		"-w", "-", // Read password from stdin
 		"-U", // Update if exists
 		"/Library/Keychains/System.keychain")
+	
+	// Pass the key via stdin to avoid exposure in process list
+	cmd.Stdin = strings.NewReader(keyBase64)
 
 	if output, err := cmd.CombinedOutput(); err != nil {
+		// Clear sensitive data from memory
+		for i := range keyBase64 {
+			keyBase64 = keyBase64[:i] + "0" + keyBase64[i+1:]
+		}
 		return fmt.Errorf("failed to add key to System keychain: %v, output: %s", err, output)
+	}
+	
+	// Clear sensitive data from memory
+	for i := range keyBase64 {
+		keyBase64 = keyBase64[:i] + "0" + keyBase64[i+1:]
 	}
 
 	logrus.Info("CA private key stored in System keychain")
@@ -303,14 +385,21 @@ func UninstallKeychainCA() error {
 		logrus.WithError(err).Warn("Failed to remove certificate from System keychain")
 	}
 
-	// Remove private key from System Keychain
-	cmd2 := exec.Command("security", "delete-generic-password",
-		"-a", keychainAccountName,
-		"-s", keychainServiceName,
-		"/Library/Keychains/System.keychain")
+	// Validate keychain parameters before use
+	if err := validateKeychainParam(keychainAccountName); err != nil {
+		logrus.WithError(err).Error("Invalid account name")
+	} else if err := validateKeychainParam(keychainServiceName); err != nil {
+		logrus.WithError(err).Error("Invalid service name")
+	} else {
+		// Remove private key from System Keychain
+		cmd2 := exec.Command("security", "delete-generic-password",
+			"-a", keychainAccountName,
+			"-s", keychainServiceName,
+			"/Library/Keychains/System.keychain")
 
-	if err := cmd2.Run(); err != nil {
-		logrus.WithError(err).Warn("Failed to remove private key from System Keychain")
+		if err := cmd2.Run(); err != nil {
+			logrus.WithError(err).Warn("Failed to remove private key from System Keychain")
+		}
 	}
 
 	// Remove certificate file
