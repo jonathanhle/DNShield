@@ -31,23 +31,27 @@ type DomainVerifier interface {
 
 // CertGenerator generates certificates dynamically
 type CertGenerator struct {
-	ca       ca.Manager
-	verifier DomainVerifier
-	cache    map[string]*cachedCert
-	mu       sync.RWMutex
-	genLimit *utils.ConcurrencyLimiter
+	ca         ca.Manager
+	verifier   DomainVerifier
+	cache      map[string]*cachedCert
+	mu         sync.RWMutex
+	genLimit   *utils.ConcurrencyLimiter
+	shutdownCh chan struct{}
+	wg         sync.WaitGroup
 }
 
 // NewCertGenerator creates a new certificate generator
 func NewCertGenerator(caManager ca.Manager, verifier DomainVerifier) *CertGenerator {
 	gen := &CertGenerator{
-		ca:       caManager,
-		verifier: verifier,
-		cache:    make(map[string]*cachedCert),
-		genLimit: utils.NewConcurrencyLimiter(utils.MaxConcurrentCertGen),
+		ca:         caManager,
+		verifier:   verifier,
+		cache:      make(map[string]*cachedCert),
+		genLimit:   utils.NewConcurrencyLimiter(utils.MaxConcurrentCertGen),
+		shutdownCh: make(chan struct{}),
 	}
 
 	// Start cache cleanup goroutine
+	gen.wg.Add(1)
 	go gen.cleanupExpiredCerts()
 
 	return gen
@@ -211,33 +215,46 @@ func (g *CertGenerator) ClearCache() {
 
 // cleanupExpiredCerts runs periodically to remove expired certificates from cache
 func (g *CertGenerator) cleanupExpiredCerts() {
+	defer g.wg.Done()
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		now := time.Now()
-		expired := []string{}
+	for {
+		select {
+		case <-g.shutdownCh:
+			logrus.Debug("Certificate cleanup goroutine shutting down")
+			return
+		case <-ticker.C:
+			now := time.Now()
+			expired := []string{}
 
-		// Find expired certificates
-		g.mu.RLock()
-		for domain, cached := range g.cache {
-			if now.After(cached.expiresAt) {
-				expired = append(expired, domain)
+			// Find expired certificates
+			g.mu.RLock()
+			for domain, cached := range g.cache {
+				if now.After(cached.expiresAt) {
+					expired = append(expired, domain)
+				}
 			}
-		}
-		g.mu.RUnlock()
+			g.mu.RUnlock()
 
-		// Remove expired certificates
-		if len(expired) > 0 {
-			g.mu.Lock()
-			for _, domain := range expired {
-				delete(g.cache, domain)
+			// Remove expired certificates
+			if len(expired) > 0 {
+				g.mu.Lock()
+				for _, domain := range expired {
+					delete(g.cache, domain)
+				}
+				g.mu.Unlock()
+
+				logrus.WithField("count", len(expired)).Debug("Cleaned up expired certificates")
 			}
-			g.mu.Unlock()
-
-			logrus.WithField("count", len(expired)).Debug("Cleaned up expired certificates")
 		}
 	}
+}
+
+// Stop gracefully shuts down the certificate generator
+func (g *CertGenerator) Stop() {
+	close(g.shutdownCh)
+	g.wg.Wait()
 }
 
 // getDNSNames returns the DNS names for a certificate based on security configuration
