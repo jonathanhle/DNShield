@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -22,18 +23,25 @@ type cachedCert struct {
 	expiresAt time.Time
 }
 
+// DomainVerifier is used to verify if a domain should have a certificate generated
+type DomainVerifier interface {
+	IsBlocked(domain string) bool
+}
+
 // CertGenerator generates certificates dynamically
 type CertGenerator struct {
-	ca    ca.Manager
-	cache map[string]*cachedCert
-	mu    sync.RWMutex
+	ca       ca.Manager
+	verifier DomainVerifier
+	cache    map[string]*cachedCert
+	mu       sync.RWMutex
 }
 
 // NewCertGenerator creates a new certificate generator
-func NewCertGenerator(caManager ca.Manager) *CertGenerator {
+func NewCertGenerator(caManager ca.Manager, verifier DomainVerifier) *CertGenerator {
 	gen := &CertGenerator{
-		ca:    caManager,
-		cache: make(map[string]*cachedCert),
+		ca:       caManager,
+		verifier: verifier,
+		cache:    make(map[string]*cachedCert),
 	}
 
 	// Start cache cleanup goroutine
@@ -63,6 +71,16 @@ func NewCertGenerator(caManager ca.Manager) *CertGenerator {
 //   - An error if certificate generation fails
 func (g *CertGenerator) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	domain := hello.ServerName
+	
+	// Security: Verify the domain is actually blocked before generating a certificate
+	if g.verifier != nil && !g.verifier.IsBlocked(domain) {
+		logrus.WithField("domain", domain).Warn("Certificate requested for non-blocked domain")
+		audit.Log(audit.EventSecurityViolation, "warning", "Certificate requested for non-blocked domain", map[string]interface{}{
+			"domain": domain,
+			"source": hello.Conn.RemoteAddr().String(),
+		})
+		return nil, fmt.Errorf("certificate generation denied: domain not blocked")
+	}
 
 	// Check cache
 	g.mu.RLock()
