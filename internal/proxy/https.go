@@ -225,6 +225,11 @@ func (p *HTTPSProxy) Stop() error {
 		errs = append(errs, err)
 	}
 
+	// Stop the certificate generator
+	if p.certGen != nil {
+		p.certGen.Stop()
+	}
+
 	if len(errs) > 0 {
 		return fmt.Errorf("errors stopping servers: %v", errs)
 	}

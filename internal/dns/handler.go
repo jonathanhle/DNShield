@@ -246,3 +246,10 @@ func (h *Handler) forwardToUpstream(w dns.ResponseWriter, r *dns.Msg, m *dns.Msg
 func (h *Handler) GetCaptivePortalDetector() *CaptivePortalDetector {
 	return h.captiveDetector
 }
+
+// Stop gracefully shuts down the handler and its components
+func (h *Handler) Stop() {
+	if h.rateLimiter != nil {
+		h.rateLimiter.Stop()
+	}
+}
