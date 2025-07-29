@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"dnshield/internal/audit"
@@ -52,13 +54,71 @@ type NetworkInterface struct {
 	Current []string // Current DNS servers
 }
 
+// validateServiceName validates network service names to prevent command injection
+func validateServiceName(name string) error {
+	// Network service names should only contain alphanumeric characters, spaces, 
+	// hyphens, parentheses, and periods
+	validServiceName := regexp.MustCompile(`^[a-zA-Z0-9\s\-\(\)\.]+$`)
+	if !validServiceName.MatchString(name) {
+		return fmt.Errorf("invalid service name: %s", name)
+	}
+	
+	// Additional check for suspicious patterns
+	suspiciousPatterns := []string{
+		"$", "`", ";", "&", "|", ">", "<", "\n", "\r", "\\",
+		"$(", "${", "&&", "||", "`;", ";`",
+	}
+	
+	for _, pattern := range suspiciousPatterns {
+		if strings.Contains(name, pattern) {
+			return fmt.Errorf("suspicious pattern in service name: %s", name)
+		}
+	}
+	
+	return nil
+}
+
+// validateDNSServer validates DNS server addresses
+func validateDNSServer(addr string) error {
+	// Basic IP address validation (IPv4 or IPv6)
+	ipv4Pattern := regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}$`)
+	ipv6Pattern := regexp.MustCompile(`^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$`)
+	
+	if !ipv4Pattern.MatchString(addr) && !ipv6Pattern.MatchString(addr) {
+		return fmt.Errorf("invalid DNS server address: %s", addr)
+	}
+	
+	// Validate IPv4 octets
+	if ipv4Pattern.MatchString(addr) {
+		parts := strings.Split(addr, ".")
+		for _, part := range parts {
+			if n := len(part); n > 3 {
+				return fmt.Errorf("invalid IPv4 address: %s", addr)
+			}
+			if val, _ := fmt.Sscanf(part, "%d", new(int)); val != 1 {
+				return fmt.Errorf("invalid IPv4 address: %s", addr)
+			}
+			var num int
+			fmt.Sscanf(part, "%d", &num)
+			if num > 255 {
+				return fmt.Errorf("invalid IPv4 address: %s", addr)
+			}
+		}
+	}
+	
+	return nil
+}
+
 // getDNSConfigPath returns the path to store DNS configuration backup
 func getDNSConfigPath() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return ".dnshield-dns-backup"
 	}
-	return fmt.Sprintf("%s/.dnshield/dns-backup.conf", homeDir)
+	
+	// Use filepath.Join to safely construct paths
+	dnshieldDir := filepath.Join(homeDir, ".dnshield")
+	return filepath.Join(dnshieldDir, "dns-backup.conf")
 }
 
 // getNetworkInterfaces returns all network interfaces
@@ -88,6 +148,12 @@ func getNetworkInterfaces() ([]NetworkInterface, error) {
 		}
 
 		logrus.WithField("service", service).Debug("Processing network service")
+		
+		// Validate service name to prevent command injection
+		if err := validateServiceName(service); err != nil {
+			logrus.WithError(err).WithField("service", service).Error("Invalid service name")
+			continue
+		}
 
 		// Get current DNS servers
 		dnsCmd := exec.Command("networksetup", "-getdnsservers", service)
@@ -155,7 +221,7 @@ func saveDNSConfiguration(interfaces []NetworkInterface) error {
 	configPath := getDNSConfigPath()
 
 	// Ensure directory exists
-	dir := strings.TrimSuffix(configPath, "/dns-backup.conf")
+	dir := filepath.Dir(configPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %v", err)
 	}
@@ -268,6 +334,16 @@ func configureDNS(opts *ConfigureDNSOptions) error {
 
 		if !opts.Force {
 			fmt.Printf("  %-20s ", iface.Name)
+		}
+		
+		// Validate interface name again before using it in command
+		if err := validateServiceName(iface.Name); err != nil {
+			logrus.WithError(err).WithField("interface", iface.Name).Error("Invalid interface name")
+			if !opts.Force {
+				fmt.Printf("❌ Skipped (invalid name)\n")
+			}
+			failureCount++
+			continue
 		}
 
 		// Set DNS to 127.0.0.1
@@ -401,6 +477,14 @@ func restoreDNS() error {
 
 		interfaceName := parts[0]
 		dnsServers := parts[1]
+		
+		// Validate interface name to prevent command injection
+		if err := validateServiceName(interfaceName); err != nil {
+			logrus.WithError(err).WithField("interface", interfaceName).Error("Invalid interface name in backup")
+			fmt.Printf("  %-20s ❌ Skipped (invalid name)\n", interfaceName)
+			failureCount++
+			continue
+		}
 
 		fmt.Printf("  %-20s ", interfaceName)
 
@@ -411,7 +495,25 @@ func restoreDNS() error {
 		} else {
 			// Restore specific DNS servers
 			servers := strings.Split(dnsServers, ",")
-			args := append([]string{"-setdnsservers", interfaceName}, servers...)
+			
+			// Validate each DNS server address
+			validServers := []string{}
+			for _, server := range servers {
+				server = strings.TrimSpace(server)
+				if err := validateDNSServer(server); err != nil {
+					logrus.WithError(err).WithField("server", server).Error("Invalid DNS server in backup")
+					continue
+				}
+				validServers = append(validServers, server)
+			}
+			
+			if len(validServers) == 0 {
+				fmt.Printf("❌ No valid DNS servers to restore\n")
+				failureCount++
+				continue
+			}
+			
+			args := append([]string{"-setdnsservers", interfaceName}, validServers...)
 			cmd = exec.Command("networksetup", args...)
 		}
 
