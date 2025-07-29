@@ -23,6 +23,7 @@ import (
 	"dnshield/internal/dns"
 	"dnshield/internal/proxy"
 	"dnshield/internal/rules"
+	"dnshield/internal/security"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -104,6 +105,12 @@ func runAgent(opts *RunOptions) error {
 	})
 
 	logrus.Info("Starting DNShield")
+
+	// Apply security hardening before doing anything else
+	hardening := security.NewHardening()
+	if err := hardening.ApplyHardening(); err != nil {
+		logrus.WithError(err).Warn("Failed to apply security hardening")
+	}
 
 	// Initialize audit logging
 	if err := audit.Initialize(); err != nil {
@@ -191,6 +198,12 @@ func runAgent(opts *RunOptions) error {
 	// Start HTTPS proxy
 	if err := httpsProxy.Start(); err != nil {
 		return fmt.Errorf("failed to start HTTPS proxy: %v", err)
+	}
+
+	// All privileged ports are now bound, drop privileges if running as root
+	if err := hardening.DropPrivilegesAfterBind(); err != nil {
+		logrus.WithError(err).Warn("Failed to drop privileges")
+		// Continue running even if privilege drop fails
 	}
 
 	// Set up S3 rule fetching if configured

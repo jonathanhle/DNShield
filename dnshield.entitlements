@@ -20,12 +20,29 @@
     <key>com.apple.developer.system-extension.install</key>
     <true/>
     
-    <!-- Required for notarization -->
+    <!-- Hardened Runtime (improves security without full sandbox) -->
+    <key>com.apple.security.runtime.hardened</key>
+    <true/>
+    
+    <!-- Disable library validation for Go runtime -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    
+    <!-- Disable unsigned executable memory -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <false/>
+    
+    <!-- App Sandbox disabled due to privileged port requirements -->
+    <!-- Security hardening implemented via internal/security/hardening.go -->
     <key>com.apple.security.app-sandbox</key>
     <false/>
     
-    <!-- Allow execution of other programs (for security commands) -->
+    <!-- Allow execution of security commands -->
     <key>com.apple.security.inherit</key>
+    <true/>
+    
+    <!-- Restrict dyld environment variables -->
+    <key>com.apple.security.cs.restrict-dyld</key>
     <true/>
 </dict>
 </plist>
