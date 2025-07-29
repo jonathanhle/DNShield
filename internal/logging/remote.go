@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -142,7 +143,7 @@ func (rl *RemoteLogger) sendToSplunk(events []audit.Event) {
 		return
 	}
 
-	hostname, _ := getHostname()
+	hostname := getHostname()
 
 	// Convert to Splunk format
 	var payload bytes.Buffer
