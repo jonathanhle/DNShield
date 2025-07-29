@@ -151,6 +151,9 @@ s3:
   region: "us-east-1"
   rulesPath: "production/rules.yaml"
   updateInterval: "5m"
+  # WARNING: Do not put AWS credentials here!
+  # Use environment variables or IAM roles instead
+  # See docs/CREDENTIAL_MIGRATION.md for details
 
 # Agent settings  
 agent:
@@ -195,7 +198,8 @@ whitelist:
 ### Environment Variables
 
 ```bash
-# AWS credentials (if not using IAM roles)
+# AWS credentials - Use environment variables for security
+# DO NOT store credentials in config files!
 export AWS_ACCESS_KEY_ID="your-key"
 export AWS_SECRET_ACCESS_KEY="your-secret"
 export AWS_REGION="us-east-1"
