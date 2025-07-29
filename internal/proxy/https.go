@@ -8,9 +8,12 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"html"
 	"html/template"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -118,6 +121,42 @@ type BlockPageData struct {
 	Version   string
 }
 
+// sanitizeDomain validates and sanitizes a domain name to prevent XSS
+func sanitizeDomain(domain string) string {
+	// Remove any potential HTML/JavaScript
+	domain = html.EscapeString(domain)
+	
+	// Validate domain format (basic check)
+	// Allow alphanumeric, dots, hyphens, and colons (for ports)
+	var sanitized strings.Builder
+	for _, ch := range domain {
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || 
+		   (ch >= '0' && ch <= '9') || ch == '.' || ch == '-' || ch == ':' {
+			sanitized.WriteRune(ch)
+		}
+	}
+	
+	result := sanitized.String()
+	
+	// Additional validation - ensure it looks like a domain
+	if len(result) == 0 || len(result) > 253 {
+		return "invalid-domain"
+	}
+	
+	return result
+}
+
+// sanitizeHeader ensures header values don't contain newlines or other dangerous characters
+func sanitizeHeader(value string) string {
+	// Remove any newlines, carriage returns, or null bytes
+	value = strings.ReplaceAll(value, "\n", "")
+	value = strings.ReplaceAll(value, "\r", "")
+	value = strings.ReplaceAll(value, "\x00", "")
+	
+	// URL encode for extra safety
+	return url.QueryEscape(value)
+}
+
 // NewHTTPSProxy creates a new HTTPS proxy
 func NewHTTPSProxy(certGen *CertGenerator) (*HTTPSProxy, error) {
 	// Parse block page template
@@ -205,11 +244,17 @@ func (p *HTTPSProxy) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 	if host, _, err := net.SplitHostPort(domain); err == nil {
 		domain = host
 	}
+	
+	// Sanitize the domain to prevent XSS
+	safeDomain := sanitizeDomain(domain)
 
-	logrus.WithField("domain", domain).Info("Serving block page")
+	logrus.WithFields(logrus.Fields{
+		"domain":      domain,
+		"safeDomain": safeDomain,
+	}).Info("Serving block page")
 
 	data := BlockPageData{
-		Domain:    domain,
+		Domain:    safeDomain, // Use sanitized domain in template
 		Reason:    "This domain is blocked by your organization's security policy",
 		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
 		Version:   "1.0.0",
@@ -224,7 +269,14 @@ func (p *HTTPSProxy) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("X-Blocked-Domain", domain)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("X-XSS-Protection", "1; mode=block")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'unsafe-inline'")
+	
+	// Sanitize domain for header to prevent header injection
+	w.Header().Set("X-Blocked-Domain", sanitizeHeader(safeDomain))
+	
 	w.WriteHeader(http.StatusOK)
 	w.Write(buf.Bytes())
 }
