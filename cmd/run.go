@@ -167,7 +167,7 @@ func runAgent(opts *RunOptions) error {
 	dnsServer := dns.NewServer(handler)
 
 	// Create certificate generator and HTTPS proxy
-	certGen := proxy.NewCertGenerator(caManager)
+	certGen := proxy.NewCertGenerator(caManager, blocker)
 	httpsProxy, err := proxy.NewHTTPSProxy(certGen)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTPS proxy: %v", err)
