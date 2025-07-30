@@ -245,12 +245,13 @@ func LoadConfig(path string) (*Config, error) {
 
 // Rules represents the blocklist rules fetched from S3
 type Rules struct {
-	Version      string    `yaml:"version"`
-	Description  string    `yaml:"description,omitempty"`
-	Updated      time.Time `yaml:"updated"`
-	BlockSources []string  `yaml:"block_sources"` // External blocklist URLs
-	BlockDomains []string  `yaml:"block_domains"` // Domains to block
-	AllowDomains []string  `yaml:"allow_domains"` // Domains to never block
+	Version      string              `yaml:"version"`
+	Description  string              `yaml:"description,omitempty"`
+	Updated      time.Time           `yaml:"updated"`
+	BlockSources []string            `yaml:"block_sources"` // External blocklist URLs
+	BlockDomains []string            `yaml:"block_domains"` // Domains to block
+	AllowDomains []string            `yaml:"allow_domains"` // Domains to never block
+	Checksums    map[string]string   `yaml:"checksums,omitempty"`     // SHA256 checksums for BlockSources
 
 	// Allow-only mode: when true, block everything except AllowDomains
 	AllowOnlyMode bool `yaml:"allow_only_mode,omitempty"`

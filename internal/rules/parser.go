@@ -2,7 +2,10 @@ package rules
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -56,12 +59,21 @@ func (p *Parser) ParseHostsFile(content string) []string {
 
 // FetchAndParseURL fetches and parses a blocklist from URL
 func (p *Parser) FetchAndParseURL(urlStr string) ([]string, error) {
+	return p.FetchAndParseURLWithChecksum(urlStr, "")
+}
+
+// FetchAndParseURLWithChecksum fetches and parses a blocklist from URL with optional SHA256 checksum verification
+func (p *Parser) FetchAndParseURLWithChecksum(urlStr, expectedSHA256 string) ([]string, error) {
 	// Validate URL to prevent SSRF attacks
 	if err := validateBlocklistURL(urlStr); err != nil {
 		return nil, err
 	}
 	
-	logrus.WithField("url", urlStr).Debug("Fetching blocklist")
+	logFields := logrus.Fields{"url": urlStr}
+	if expectedSHA256 != "" {
+		logFields["expected_checksum"] = expectedSHA256
+	}
+	logrus.WithFields(logFields).Debug("Fetching blocklist")
 
 	resp, err := p.httpClient.Get(urlStr)
 	if err != nil {
@@ -76,7 +88,14 @@ func (p *Parser) FetchAndParseURL(urlStr string) ([]string, error) {
 	// Limit response body size to prevent DoS
 	limitedReader := utils.LimitedReader(resp.Body, int64(utils.MaxRulesFileSize))
 	
-	scanner := bufio.NewScanner(limitedReader)
+	// If checksum verification is requested, wrap with a hashing reader
+	var reader io.Reader = limitedReader
+	hasher := sha256.New()
+	if expectedSHA256 != "" {
+		reader = io.TeeReader(limitedReader, hasher)
+	}
+	
+	scanner := bufio.NewScanner(reader)
 	var domains []string
 
 	for scanner.Scan() {
@@ -102,12 +121,33 @@ func (p *Parser) FetchAndParseURL(urlStr string) ([]string, error) {
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading blocklist: %v", err)
+	}
+	
+	// Verify checksum if provided
+	if expectedSHA256 != "" {
+		actualChecksum := hex.EncodeToString(hasher.Sum(nil))
+		if actualChecksum != expectedSHA256 {
+			logrus.WithFields(logrus.Fields{
+				"url":      urlStr,
+				"expected": expectedSHA256,
+				"actual":   actualChecksum,
+			}).Error("Blocklist checksum mismatch")
+			return nil, fmt.Errorf("blocklist checksum mismatch: expected %s, got %s", expectedSHA256, actualChecksum)
+		}
+		logrus.WithFields(logrus.Fields{
+			"url":      urlStr,
+			"checksum": actualChecksum,
+		}).Debug("Blocklist checksum verified")
+	}
+
 	logrus.WithFields(logrus.Fields{
 		"url":     urlStr,
 		"domains": len(domains),
 	}).Info("Parsed blocklist")
 
-	return domains, scanner.Err()
+	return domains, nil
 }
 
 // MergeDomains merges multiple domain lists and removes duplicates
