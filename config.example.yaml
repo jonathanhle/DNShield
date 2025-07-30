@@ -20,6 +20,10 @@ dns:
   # Cache settings
   cacheSize: 10000  # Number of entries to cache
   cacheTTL: "1h"    # How long to cache entries
+  
+  # Rate limiting (prevents DNS amplification attacks)
+  rateLimitQueries: 100  # Max queries per IP per window
+  rateLimitWindow: "1s"  # Time window for rate limiting
 
 # S3 configuration for centralized rule management
 s3:

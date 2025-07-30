@@ -147,7 +147,7 @@ func runAgent(opts *RunOptions) error {
 	}()
 
 	// Create DNS handler and server with API integration and captive portal support
-	handler := dns.NewHandler(blocker, cfg.DNS.Upstreams, "127.0.0.1", &cfg.CaptivePortal)
+	handler := dns.NewHandler(blocker, &cfg.DNS, "127.0.0.1", &cfg.CaptivePortal)
 	handler.SetStatsCallback(func(query bool, blocked bool, cached bool) {
 		if query {
 			apiServer.IncrementQueries()

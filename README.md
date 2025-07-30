@@ -77,6 +77,7 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 - Support for multiple blocklist formats (hosts, domains, AdGuard)
 - Real-time rule updates from S3
 - Configurable upstream resolvers (Cloudflare, Google, custom)
+- **Rate limiting** to prevent DNS amplification attacks
 - Wildcard and regex support (planned)
 
 ### HTTPS Interception  
@@ -144,6 +145,8 @@ dns:
     - "8.8.8.8"         # Google
   cacheSize: 10000
   cacheTTL: "1h"
+  rateLimitQueries: 100  # Max queries per second per IP
+  rateLimitWindow: "1s"  # Rate limit time window
 
 # S3 rule management
 s3:

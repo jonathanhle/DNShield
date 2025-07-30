@@ -4,33 +4,33 @@
 These bugs prevent the application from running or create immediate security vulnerabilities.
 
 ### Missing Core Implementations (App Won't Run)
-- [ ] Bug #1: CaptivePortalDetector struct not implemented (internal/dns/captive_portal.go)
-- [ ] Bug #2: NetworkManager struct not implemented (internal/dns/network_manager.go) 
-- [ ] Bug #3: NewAPIServer function not implemented (internal/api/server.go)
-- [ ] Bug #4: audit.Logger interface not implemented (internal/audit/logger.go)
-- [ ] Bug #5: NewRemoteLogger function not implemented (internal/audit/remote.go)
+- [x] Bug #1: CaptivePortalDetector struct not implemented (internal/dns/captive_portal.go) - Verified: Already implemented
+- [x] Bug #2: NetworkManager struct not implemented (internal/dns/network_manager.go) - Verified: Already implemented 
+- [x] Bug #3: NewAPIServer function not implemented (internal/api/server.go) - Verified: Exists as NewServer
+- [x] Bug #4: audit.Logger interface not implemented (internal/audit/logger.go) - Verified: Already implemented
+- [x] Bug #5: NewRemoteLogger function not implemented (internal/audit/remote.go) - Verified: Already implemented
 - [ ] Bug #7: EnterpriseConfig.LoadUserGroups() method not implemented
 - [ ] Bug #8: EnterpriseConfig.CheckUserAccess() method not implemented
-- [ ] Bug #40: ca.LoadOrCreateManager() called but doesn't exist (should be LoadOrCreateCA)
+- [x] Bug #40: ca.LoadOrCreateManager() called but doesn't exist (should be LoadOrCreateCA) - Verified: LoadOrCreateCA exists
 - [ ] Bug #6: Missing import for enterprisefilter package
-- [ ] Bug #56: ca.Manager interface used but not defined
-- [ ] Bug #17: MenuBar app expects /status endpoint but not implemented
-- [ ] Bug #18: Pause/resume API endpoints referenced but not created
-- [ ] Bug #256: Menu bar API server not implemented but referenced
+- [x] Bug #56: ca.Manager interface used but not defined - Verified: Interface exists
+- [x] Bug #17: MenuBar app expects /status endpoint but not implemented - Fixed: API server implementation in PR #15
+- [x] Bug #18: Pause/resume API endpoints referenced but not created - Fixed: API server implementation in PR #15
+- [x] Bug #256: Menu bar API server not implemented but referenced - Fixed: API server implementation in PR #15
 
 ### Critical Security Vulnerabilities (Remote Exploits)
-- [ ] Bug #48: Command injection in configure_dns.go:93 (service name to exec.Command)
-- [ ] Bug #49: Command injection in configure_dns.go:274 (interface name to networksetup)
-- [ ] Bug #50: Command injection in configure_dns.go:410,415 (interface names from backup)
-- [ ] Bug #57: Command injection in uninstall.go:69-71 (certificate names to exec.Command)
-- [ ] Bug #59: Command injection in uninstall.go:107 (path to rm command)
-- [ ] Bug #60: Command injection in keychain_darwin.go:89-92 (account/service names)
-- [ ] Bug #62: Command injection in keychain_darwin.go:212-215
-- [ ] Bug #63: Command injection in keychain_darwin.go:218-224
-- [ ] Bug #65: Command injection in keychain_darwin.go:307-310
-- [ ] Bug #20: Certificate generation allows any domain without verification (potential for abuse)
-- [ ] Bug #311: Block page vulnerable to XSS via domain parameter
-- [ ] Bug #276: YAML tags allow arbitrary field injection
+- [x] Bug #48: Command injection in configure_dns.go:93 (service name to exec.Command) - Fixed: PR #9
+- [x] Bug #49: Command injection in configure_dns.go:274 (interface name to networksetup) - Fixed: PR #9
+- [x] Bug #50: Command injection in configure_dns.go:410,415 (interface names from backup) - Fixed: PR #9
+- [x] Bug #57: Command injection in uninstall.go:69-71 (certificate names to exec.Command) - Fixed: PR #10
+- [x] Bug #59: Command injection in uninstall.go:107 (path to rm command) - Fixed: PR #10
+- [x] Bug #60: Command injection in keychain_darwin.go:89-92 (account/service names) - Fixed: PR #11
+- [x] Bug #62: Command injection in keychain_darwin.go:212-215 - Fixed: PR #11
+- [x] Bug #63: Command injection in keychain_darwin.go:218-224 - Fixed: PR #11
+- [x] Bug #65: Command injection in keychain_darwin.go:307-310 - Fixed: PR #11
+- [x] Bug #20: Certificate generation allows any domain without verification (potential for abuse) - Fixed: PR #12
+- [x] Bug #311: Block page vulnerable to XSS via domain parameter - Fixed: PR #13
+- [x] Bug #276: YAML tags allow arbitrary field injection - Verified: Not a vulnerability (no user input to YAML)
 - [ ] Bug #209: interface{} allows arbitrary injection
 - [ ] Bug #351: User input passed to fmt.Sprintf without validation
 
@@ -38,19 +38,19 @@ These bugs prevent the application from running or create immediate security vul
 These bugs create major security risks or cause system instability.
 
 ### Authentication & Authorization
-- [ ] Bug #23: Bypass command has no authentication (cmd/bypass.go)
-- [ ] Bug #130: No API authentication mechanism
-- [ ] Bug #257: No API authentication mechanism (duplicate)
+- [x] Bug #23: Bypass command has no authentication (cmd/bypass.go) - Fixed: PR #14
+- [x] Bug #130: No API authentication mechanism - Fixed: PR #15
+- [x] Bug #257: No API authentication mechanism (duplicate) - Fixed: PR #15
 - [ ] Bug #132: No access control for configuration changes
 - [ ] Bug #161: App sandbox disabled (major risk)
 - [ ] Bug #87: No privilege dropping after binding to ports
 - [ ] Bug #309: No capability dropping after port binding
 
 ### Sensitive Data Exposure
-- [ ] Bug #21: S3 credentials stored in plaintext in config file
-- [ ] Bug #101: AWS credentials in plaintext in config
-- [ ] Bug #131: AWS credentials stored/passed insecurely
-- [ ] Bug #61: Sensitive key material in command args (keychain_darwin.go:222)
+- [x] Bug #21: S3 credentials stored in plaintext in config file - Fixed: PR #16
+- [x] Bug #101: AWS credentials in plaintext in config - Fixed: PR #16
+- [x] Bug #131: AWS credentials stored/passed insecurely - Fixed: PR #16
+- [x] Bug #61: Sensitive key material in command args (keychain_darwin.go:222) - Fixed: PR #11
 - [ ] Bug #66: Key material logged in command arguments (security risk)
 - [ ] Bug #91: AWS credentials potentially logged in errors
 - [ ] Bug #319: Private keys logged in debug mode
@@ -59,7 +59,7 @@ These bugs create major security risks or cause system instability.
 - [ ] Bug #441: PII logged without consent
 
 ### DoS Vulnerabilities
-- [ ] Bug #22: No rate limiting on DNS queries (DoS vulnerability)
+- [x] Bug #22: No rate limiting on DNS queries (DoS vulnerability) - Fixed: PR #17
 - [ ] Bug #45: No size limit when downloading S3 objects (memory exhaustion)
 - [ ] Bug #46: YAML unmarshaling without limits (YAML bomb vulnerability)
 - [ ] Bug #68: io.ReadAll in fetcher.go:88 has no size limit (memory exhaustion)
@@ -91,15 +91,15 @@ These bugs create major security risks or cause system instability.
 - [ ] Bug #485: Statistics collection has race conditions
 
 ### Critical Validation Issues
-- [ ] Bug #51: Path traversal in getDNSConfigPath() - no validation of home directory
-- [ ] Bug #58: Path traversal in uninstall.go:91 (caPath from GetCAPath())
+- [x] Bug #51: Path traversal in getDNSConfigPath() - no validation of home directory - Fixed: PR #9
+- [x] Bug #58: Path traversal in uninstall.go:91 (caPath from GetCAPath()) - Fixed: PR #10
 - [ ] Bug #173: No path sanitization in config file loading
 - [ ] Bug #174: User-controlled paths without validation
 - [ ] Bug #280: Config file path traversal possible
 - [ ] Bug #24: SSRF vulnerability in captive portal URL checking
 - [ ] Bug #47: No integrity verification of downloaded rules (no hash check)
-- [ ] Bug #52: No validation of DNS server addresses before passing to networksetup
-- [ ] Bug #53: No validation that domain is blocked before generating certificate
+- [x] Bug #52: No validation of DNS server addresses before passing to networksetup - Fixed: PR #9
+- [x] Bug #53: No validation that domain is blocked before generating certificate - Fixed: PR #12
 
 ## Phase 3: Medium Priority - Fix Before Launch (Functionality & Security)
 These bugs affect core functionality or create moderate security risks.
@@ -136,9 +136,9 @@ These bugs affect core functionality or create moderate security risks.
 - [ ] Bug #306: os.Exit(1) in main.go prevents cleanup
 
 ### HTTP Security Headers
-- [ ] Bug #111: Missing security headers (X-Frame-Options, X-Content-Type-Options, CSP)
-- [ ] Bug #312: No Content-Security-Policy header
-- [ ] Bug #313: No X-Frame-Options header
+- [x] Bug #111: Missing security headers (X-Frame-Options, X-Content-Type-Options, CSP) - Fixed: PR #13
+- [x] Bug #312: No Content-Security-Policy header - Fixed: PR #13
+- [x] Bug #313: No X-Frame-Options header - Fixed: PR #13
 - [ ] Bug #314: No Strict-Transport-Security header
 - [ ] Bug #462: No security headers in HTTP responses
 
@@ -284,9 +284,9 @@ These are minor issues that don't affect functionality or security.
 
 ## Summary by Phase
 
-- **Phase 1 (Critical)**: 29 bugs - Missing implementations and remote exploits
-- **Phase 2 (High)**: 87 bugs - Major security vulnerabilities and stability issues  
-- **Phase 3 (Medium)**: 75 bugs - Core functionality and moderate security issues
+- **Phase 1 (Critical)**: 29 bugs - Missing implementations and remote exploits (22 fixed, 7 remaining)
+- **Phase 2 (High)**: 87 bugs - Major security vulnerabilities and stability issues (9 fixed, 78 remaining)  
+- **Phase 3 (Medium)**: 75 bugs - Core functionality and moderate security issues (3 fixed, 72 remaining)
 - **Phase 4 (Low)**: 69 bugs - Performance and maintainability improvements
 - **Phase 5 (Nice to Have)**: 45 bugs - Enhancements and polish
 - **Phase 6 (Cosmetic)**: 22 bugs - Minor issues and edge cases
