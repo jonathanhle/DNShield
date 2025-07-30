@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -128,6 +129,41 @@ func ValidateConfig(cfg *Config) error {
 	// Validate rate limiting
 	if cfg.DNS.RateLimitQueries < 0 {
 		return fmt.Errorf("invalid rate limit queries: %d", cfg.DNS.RateLimitQueries)
+	}
+	
+	// Validate Splunk endpoint if configured
+	if cfg.Logging.Splunk.Enabled && cfg.Logging.Splunk.Endpoint != "" {
+		u, err := url.Parse(cfg.Logging.Splunk.Endpoint)
+		if err != nil {
+			return fmt.Errorf("invalid Splunk endpoint URL: %v", err)
+		}
+		
+		// Only allow HTTPS for Splunk
+		if u.Scheme != "https" {
+			return fmt.Errorf("Splunk endpoint must use HTTPS")
+		}
+		
+		// Basic hostname validation
+		if u.Hostname() == "" {
+			return fmt.Errorf("Splunk endpoint must have a hostname")
+		}
+	}
+	
+	// Validate external blocklist URLs
+	for _, source := range cfg.Rules.BlockSources {
+		// Use a simplified validation for config-time checks
+		u, err := url.Parse(source)
+		if err != nil {
+			return fmt.Errorf("invalid blocklist URL %s: %v", source, err)
+		}
+		
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return fmt.Errorf("blocklist URL must use HTTP or HTTPS: %s", source)
+		}
+		
+		if u.Hostname() == "" {
+			return fmt.Errorf("blocklist URL must have a hostname: %s", source)
+		}
 	}
 
 	return nil
