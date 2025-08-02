@@ -31,8 +31,9 @@ type EnterpriseFetcher struct {
 
 // NewEnterpriseFetcher creates a new enterprise rule fetcher
 func NewEnterpriseFetcher(cfg *config.S3Config) (*EnterpriseFetcher, error) {
-	// Configure AWS SDK
-	ctx := context.Background()
+	// Configure AWS SDK with timeout for faster failure on non-EC2 systems
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	// Get credentials securely
 	creds, err := config.GetAWSCredentials(cfg)
@@ -56,8 +57,10 @@ func NewEnterpriseFetcher(cfg *config.S3Config) (*EnterpriseFetcher, error) {
 		)
 	default:
 		// Use default credential chain (IAM role, etc.)
+		// Disable EC2 IMDS to avoid long timeouts on non-EC2 systems
 		awsCfg, err = awsconfig.LoadDefaultConfig(ctx,
 			awsconfig.WithRegion(cfg.Region),
+			awsconfig.WithEC2IMDSEndpointMode(aws.EC2IMDSEndpointModeStateDisabled),
 		)
 	}
 
