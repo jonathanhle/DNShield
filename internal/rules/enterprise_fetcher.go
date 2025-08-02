@@ -57,6 +57,7 @@ func NewEnterpriseFetcher(cfg *config.S3Config) (*EnterpriseFetcher, error) {
 		)
 	default:
 		// Use default credential chain (IAM role, etc.)
+		// Use context timeout to avoid long waits on non-EC2 systems
 		// Disable EC2 IMDS to avoid long timeouts on non-EC2 systems
 		awsCfg, err = awsconfig.LoadDefaultConfig(ctx,
 			awsconfig.WithRegion(cfg.Region),
