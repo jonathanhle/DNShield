@@ -568,7 +568,9 @@ dnshield/
 **Captive portals not working (airport/hotel WiFi)**
 - DNShield automatically detects and bypasses captive portals
 - See [Captive Portal Support](docs/CAPTIVE_PORTALS.md) for details
-- Manual bypass: `sudo ./dnshield bypass enable`
+- Manual bypass requires authentication:
+  1. Generate token: `sudo ./dnshield auth generate`
+  2. Enable bypass: `sudo ./dnshield bypass enable --token YOUR_TOKEN`
 - Check Keychain Access for "DNShield" certificate
 - Clear browser cache or use incognito mode
 

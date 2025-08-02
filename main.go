@@ -35,6 +35,7 @@ block pages without certificate warnings.`,
 		newVersionCmd(),
 		newConfigureDNSCmd(),
 		newBypassCmd(),
+		newAuthCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -98,4 +99,8 @@ func newConfigureDNSCmd() *cobra.Command {
 
 func newBypassCmd() *cobra.Command {
 	return cmd.NewBypassCmd()
+}
+
+func newAuthCmd() *cobra.Command {
+	return cmd.NewAuthCmd()
 }
