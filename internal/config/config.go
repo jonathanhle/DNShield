@@ -5,7 +5,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -111,6 +114,34 @@ type LocalConfig struct {
 
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(path string) (*Config, error) {
+	// Sanitize the path to prevent directory traversal
+	if path != "" {
+		// Clean the path and ensure it's not trying to escape
+		cleanPath := filepath.Clean(path)
+		
+		// Check for suspicious patterns
+		if strings.Contains(cleanPath, "..") {
+			return nil, fmt.Errorf("invalid config path: path traversal detected")
+		}
+		
+		// Resolve to absolute path
+		absPath, err := filepath.Abs(cleanPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve config path: %v", err)
+		}
+		
+		// Ensure the file exists and is a regular file
+		info, err := os.Stat(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("config file not found: %v", err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("config path is not a regular file")
+		}
+		
+		path = absPath
+	}
+	
 	// Set defaults
 	cfg := &Config{
 		Agent: AgentConfig{
@@ -184,9 +215,24 @@ func LoadConfig(path string) (*Config, error) {
 
 	// If we have a config file, load it
 	if path != "" {
+		// Re-stat the file to get size (path is now validated and absolute)
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, err
+		}
+		
+		if info.Size() > 1024*1024 { // 1MB limit for config files
+			return nil, fmt.Errorf("config file exceeds maximum size of 1MB")
+		}
+		
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
+		}
+
+		// Validate YAML before parsing
+		if strings.Count(string(data), "&") > 100 || strings.Count(string(data), "*") > 100 {
+			return nil, fmt.Errorf("config file contains too many YAML anchors/aliases")
 		}
 
 		if err := yaml.Unmarshal(data, cfg); err != nil {
@@ -199,12 +245,13 @@ func LoadConfig(path string) (*Config, error) {
 
 // Rules represents the blocklist rules fetched from S3
 type Rules struct {
-	Version      string    `yaml:"version"`
-	Description  string    `yaml:"description,omitempty"`
-	Updated      time.Time `yaml:"updated"`
-	BlockSources []string  `yaml:"block_sources"` // External blocklist URLs
-	BlockDomains []string  `yaml:"block_domains"` // Domains to block
-	AllowDomains []string  `yaml:"allow_domains"` // Domains to never block
+	Version      string              `yaml:"version"`
+	Description  string              `yaml:"description,omitempty"`
+	Updated      time.Time           `yaml:"updated"`
+	BlockSources []string            `yaml:"block_sources"` // External blocklist URLs
+	BlockDomains []string            `yaml:"block_domains"` // Domains to block
+	AllowDomains []string            `yaml:"allow_domains"` // Domains to never block
+	Checksums    map[string]string   `yaml:"checksums,omitempty"`     // SHA256 checksums for BlockSources
 
 	// Allow-only mode: when true, block everything except AllowDomains
 	AllowOnlyMode bool `yaml:"allow_only_mode,omitempty"`

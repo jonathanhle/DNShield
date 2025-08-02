@@ -1,10 +1,13 @@
 package dns
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	
 	"dnshield/internal/security"
+	"dnshield/internal/utils"
+	"github.com/sirupsen/logrus"
 )
 
 // Blocker manages domain blocking
@@ -29,37 +32,63 @@ func NewBlocker() *Blocker {
 }
 
 // UpdateDomains updates the blocked domains list
-func (b *Blocker) UpdateDomains(domains []string) {
+func (b *Blocker) UpdateDomains(domains []string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	// Check domain count limit
+	if len(domains) > utils.MaxDomainsPerRule {
+		return fmt.Errorf("domain count %d exceeds maximum of %d", len(domains), utils.MaxDomainsPerRule)
+	}
 
 	// Clear and rebuild
 	b.blockedDomains = make(map[string]bool)
 	for _, domain := range domains {
 		domain = strings.ToLower(strings.TrimSpace(domain))
 		if domain != "" {
+			// Validate domain length
+			if err := utils.ValidateDomainLength(domain); err != nil {
+				// Log but don't fail - skip invalid domains
+				logrus.WithError(err).WithField("domain", domain).Warn("Skipping invalid domain")
+				continue
+			}
 			b.blockedDomains[domain] = true
 		}
 	}
+	
+	return nil
 }
 
 // UpdateAllowlist updates the allowlist
-func (b *Blocker) UpdateAllowlist(domains []string) {
+func (b *Blocker) UpdateAllowlist(domains []string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	// Check domain count limit
+	if len(domains) > utils.MaxDomainsPerRule {
+		return fmt.Errorf("allowlist domain count %d exceeds maximum of %d", len(domains), utils.MaxDomainsPerRule)
+	}
 
 	b.allowlist = make(map[string]bool)
 	for _, domain := range domains {
 		domain = strings.ToLower(strings.TrimSpace(domain))
 		if domain != "" {
+			// Validate domain length
+			if err := utils.ValidateDomainLength(domain); err != nil {
+				// Log but don't fail - skip invalid domains
+				logrus.WithError(err).WithField("domain", domain).Warn("Skipping invalid allowlist domain")
+				continue
+			}
 			b.allowlist[domain] = true
 		}
 	}
+	
+	return nil
 }
 
 // UpdateWhitelist is a backward compatibility alias for UpdateAllowlist
-func (b *Blocker) UpdateWhitelist(domains []string) {
-	b.UpdateAllowlist(domains)
+func (b *Blocker) UpdateWhitelist(domains []string) error {
+	return b.UpdateAllowlist(domains)
 }
 
 // UpdateMetadata updates user and group information for logging

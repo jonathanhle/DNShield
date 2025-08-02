@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,8 +22,10 @@ import (
 	"dnshield/internal/ca"
 	"dnshield/internal/config"
 	"dnshield/internal/dns"
+	"dnshield/internal/logging"
 	"dnshield/internal/proxy"
 	"dnshield/internal/rules"
+	"dnshield/internal/security"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -103,7 +106,29 @@ func runAgent(opts *RunOptions) error {
 		FullTimestamp: true,
 	})
 
+	// Install sanitizing hook to prevent sensitive data leakage
+	enablePII := cfg.Agent.LogLevel == "debug" && os.Getenv("DNSHIELD_ENABLE_PII_LOGGING") == "true"
+	logging.InstallSanitizingHook(enablePII)
+
 	logrus.Info("Starting DNShield")
+
+	// Validate configuration
+	if err := config.ValidateConfig(cfg); err != nil {
+		return fmt.Errorf("invalid configuration: %v", err)
+	}
+
+	// Check for security issues in configuration
+	config.ValidateCredentialSecurity(cfg)
+
+	// Log sanitized configuration
+	sanitizedConfig := config.SanitizeConfigForLogging(cfg)
+	logrus.WithFields(logrus.Fields(sanitizedConfig)).Info("Configuration loaded")
+
+	// Apply security hardening before doing anything else
+	hardening := security.NewHardening()
+	if err := hardening.ApplyHardening(); err != nil {
+		logrus.WithError(err).Warn("Failed to apply security hardening")
+	}
 
 	// Initialize audit logging
 	if err := audit.Initialize(); err != nil {
@@ -127,7 +152,9 @@ func runAgent(opts *RunOptions) error {
 	// Load initial test domains
 	if len(cfg.TestDomains) > 0 {
 		logrus.WithField("count", len(cfg.TestDomains)).Info("Loading test domains")
-		blocker.UpdateDomains(cfg.TestDomains)
+		if err := blocker.UpdateDomains(cfg.TestDomains); err != nil {
+			logrus.WithError(err).Error("Failed to load test domains")
+		}
 	}
 
 	// Create network-aware DNS manager for handling pause/resume
@@ -146,11 +173,20 @@ func runAgent(opts *RunOptions) error {
 		}
 	}
 
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Create API server for menu bar app
 	apiServer := api.NewServer(dnsManager)
 
+	// Wait group for tracking goroutines
+	var wg sync.WaitGroup
+
 	// Start API server
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := apiServer.Start(5353); err != nil {
 			logrus.WithError(err).Error("API server failed")
 		}
@@ -193,9 +229,19 @@ func runAgent(opts *RunOptions) error {
 		return fmt.Errorf("failed to start HTTPS proxy: %v", err)
 	}
 
+	// All privileged ports are now bound, drop privileges if running as root
+	if err := hardening.DropPrivilegesAfterBind(); err != nil {
+		logrus.WithError(err).Warn("Failed to drop privileges")
+		// Continue running even if privilege drop fails
+	}
+
 	// Set up S3 rule fetching if configured
 	if cfg.S3.Bucket != "" {
-		go startRuleUpdater(cfg, blocker)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			startRuleUpdater(ctx, cfg, blocker)
+		}()
 	}
 
 	logrus.Info("DNShield is running")
@@ -226,6 +272,11 @@ func runAgent(opts *RunOptions) error {
 		}
 	})
 
+	// Load API keys
+	if err := apiServer.LoadAPIKeys(); err != nil {
+		logrus.WithError(err).Warn("Failed to load API keys")
+	}
+
 	// Update API server configuration
 	apiServer.UpdateConfig(&api.Config{
 		AllowPause:     cfg.Agent.AllowDisable,
@@ -234,24 +285,35 @@ func runAgent(opts *RunOptions) error {
 	})
 
 	// Start periodic stats update
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 
-		for range ticker.C {
-			var m runtime.MemStats
-			runtime.ReadMemStats(&m)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
 
-			stats := apiServer.GetStats()
-			stats.MemoryUsageMB = float64(m.Alloc) / 1024 / 1024
-			stats.Uptime = time.Since(startTime).String()
-			apiServer.UpdateStats(stats)
+				stats := apiServer.GetStats()
+				stats.MemoryUsageMB = float64(m.Alloc) / 1024 / 1024
+				stats.Uptime = time.Since(startTime).String()
+				apiServer.UpdateStats(stats)
+			}
 		}
 	}()
 
 	// Start DNS configuration monitor if auto-configure is enabled
 	if opts.AutoConfigure {
-		go monitorDNSConfiguration()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			monitorDNSConfiguration(ctx)
+		}()
 	}
 
 	// Wait for interrupt signal
@@ -261,11 +323,14 @@ func runAgent(opts *RunOptions) error {
 
 	logrus.Info("Shutting down...")
 
-	// Stop servers
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	// Cancel context to signal all goroutines to stop
+	cancel()
 
-	if err := apiServer.Stop(ctx); err != nil {
+	// Stop servers with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := apiServer.Stop(shutdownCtx); err != nil {
 		logrus.WithError(err).Warn("Error stopping API server")
 	}
 	if err := dnsServer.Stop(); err != nil {
@@ -275,11 +340,25 @@ func runAgent(opts *RunOptions) error {
 		logrus.WithError(err).Warn("Error stopping HTTPS proxy")
 	}
 
+	// Wait for all goroutines to finish
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		logrus.Info("All goroutines stopped cleanly")
+	case <-time.After(5 * time.Second):
+		logrus.Warn("Timeout waiting for goroutines to stop")
+	}
+
 	logrus.Info("DNShield stopped")
 	return nil
 }
 
-func startRuleUpdater(cfg *config.Config, blocker *dns.Blocker) {
+func startRuleUpdater(ctx context.Context, cfg *config.Config, blocker *dns.Blocker) {
 	// Create enterprise S3 fetcher
 	fetcher, err := rules.NewEnterpriseFetcher(&cfg.S3)
 	if err != nil {
@@ -302,8 +381,14 @@ func startRuleUpdater(cfg *config.Config, blocker *dns.Blocker) {
 	ticker := time.NewTicker(cfg.S3.UpdateInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		updateEnterpriseRules(fetcher, parser, blocker)
+	for {
+		select {
+		case <-ctx.Done():
+			logrus.Info("Rule updater shutting down")
+			return
+		case <-ticker.C:
+			updateEnterpriseRules(fetcher, parser, blocker)
+		}
 	}
 }
 
@@ -349,8 +434,14 @@ func updateEnterpriseRules(fetcher *rules.EnterpriseFetcher, parser *rules.Parse
 	finalBlockDomains := rules.MergeDomains(blockDomains)
 
 	// Update blocker
-	blocker.UpdateDomains(finalBlockDomains)
-	blocker.UpdateAllowlist(allowDomains)
+	if err := blocker.UpdateDomains(finalBlockDomains); err != nil {
+		logrus.WithError(err).Error("Failed to update blocked domains")
+		return
+	}
+	if err := blocker.UpdateAllowlist(allowDomains); err != nil {
+		logrus.WithError(err).Error("Failed to update allowlist")
+		return
+	}
 	blocker.SetAllowOnlyMode(allowOnlyMode)
 
 	logFields := logrus.Fields{
@@ -436,29 +527,35 @@ func getSecurityMode() string {
 }
 
 // monitorDNSConfiguration periodically checks and fixes DNS configuration
-func monitorDNSConfiguration() {
+func monitorDNSConfiguration(ctx context.Context) {
 	logrus.Info("Starting DNS configuration monitor")
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
 	checkCount := 0
-	for range ticker.C {
-		checkCount++
-		logrus.WithField("check_count", checkCount).Debug("Performing DNS configuration check")
+	for {
+		select {
+		case <-ctx.Done():
+			logrus.Info("DNS configuration monitor shutting down")
+			return
+		case <-ticker.C:
+			checkCount++
+			logrus.WithField("check_count", checkCount).Debug("Performing DNS configuration check")
 
-		if err := VerifyDNSConfiguration(); err != nil {
-			logrus.WithError(err).Warn("DNS configuration drift detected, reconfiguring...")
+			if err := VerifyDNSConfiguration(); err != nil {
+				logrus.WithError(err).Warn("DNS configuration drift detected, reconfiguring...")
 
-			// Reconfigure DNS
-			configOpts := &ConfigureDNSOptions{Force: true}
-			if err := configureDNS(configOpts); err != nil {
-				logrus.WithError(err).Error("Failed to reconfigure DNS")
+				// Reconfigure DNS
+				configOpts := &ConfigureDNSOptions{Force: true}
+				if err := configureDNS(configOpts); err != nil {
+					logrus.WithError(err).Error("Failed to reconfigure DNS")
+				} else {
+					logrus.Info("DNS configuration restored")
+					audit.Log(audit.EventConfigChange, "warning", "DNS configuration drift corrected", nil)
+				}
 			} else {
-				logrus.Info("DNS configuration restored")
-				audit.Log(audit.EventConfigChange, "warning", "DNS configuration drift corrected", nil)
+				logrus.WithField("check_count", checkCount).Debug("DNS configuration verified - no drift detected")
 			}
-		} else {
-			logrus.WithField("check_count", checkCount).Debug("DNS configuration verified - no drift detected")
 		}
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"dnshield/internal/audit"
 	"dnshield/internal/ca"
 	"dnshield/internal/security"
+	"dnshield/internal/utils"
 	"github.com/sirupsen/logrus"
 )
 
@@ -30,21 +31,27 @@ type DomainVerifier interface {
 
 // CertGenerator generates certificates dynamically
 type CertGenerator struct {
-	ca       ca.Manager
-	verifier DomainVerifier
-	cache    map[string]*cachedCert
-	mu       sync.RWMutex
+	ca         ca.Manager
+	verifier   DomainVerifier
+	cache      map[string]*cachedCert
+	mu         sync.RWMutex
+	genLimit   *utils.ConcurrencyLimiter
+	shutdownCh chan struct{}
+	wg         sync.WaitGroup
 }
 
 // NewCertGenerator creates a new certificate generator
 func NewCertGenerator(caManager ca.Manager, verifier DomainVerifier) *CertGenerator {
 	gen := &CertGenerator{
-		ca:       caManager,
-		verifier: verifier,
-		cache:    make(map[string]*cachedCert),
+		ca:         caManager,
+		verifier:   verifier,
+		cache:      make(map[string]*cachedCert),
+		genLimit:   utils.NewConcurrencyLimiter(utils.MaxConcurrentCertGen),
+		shutdownCh: make(chan struct{}),
 	}
 
 	// Start cache cleanup goroutine
+	gen.wg.Add(1)
 	go gen.cleanupExpiredCerts()
 
 	return gen
@@ -102,6 +109,13 @@ func (g *CertGenerator) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certifi
 		g.mu.RUnlock()
 	}
 
+	// Check concurrent generation limit
+	if !g.genLimit.TryAcquire() {
+		logrus.WithField("domain", domain).Warn("Certificate generation concurrency limit exceeded")
+		return nil, fmt.Errorf("too many concurrent certificate generations")
+	}
+	defer g.genLimit.Release()
+
 	// Generate new certificate
 	start := time.Now()
 
@@ -149,6 +163,23 @@ func (g *CertGenerator) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certifi
 	expiresAt := time.Now().Add(cacheTTL)
 
 	g.mu.Lock()
+	// Check cache size limit
+	if len(g.cache) >= utils.MaxCertCacheEntries {
+		// Remove ~10% of oldest entries
+		count := 0
+		for k := range g.cache {
+			delete(g.cache, k)
+			count++
+			if count > utils.MaxCertCacheEntries/10 {
+				break
+			}
+		}
+		logrus.WithFields(logrus.Fields{
+			"evicted": count,
+			"maxSize": utils.MaxCertCacheEntries,
+		}).Warn("Certificate cache at capacity, evicted entries")
+	}
+	
 	g.cache[domain] = &cachedCert{
 		cert:      tlsCert,
 		expiresAt: expiresAt,
@@ -184,33 +215,46 @@ func (g *CertGenerator) ClearCache() {
 
 // cleanupExpiredCerts runs periodically to remove expired certificates from cache
 func (g *CertGenerator) cleanupExpiredCerts() {
+	defer g.wg.Done()
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		now := time.Now()
-		expired := []string{}
+	for {
+		select {
+		case <-g.shutdownCh:
+			logrus.Debug("Certificate cleanup goroutine shutting down")
+			return
+		case <-ticker.C:
+			now := time.Now()
+			expired := []string{}
 
-		// Find expired certificates
-		g.mu.RLock()
-		for domain, cached := range g.cache {
-			if now.After(cached.expiresAt) {
-				expired = append(expired, domain)
+			// Find expired certificates
+			g.mu.RLock()
+			for domain, cached := range g.cache {
+				if now.After(cached.expiresAt) {
+					expired = append(expired, domain)
+				}
 			}
-		}
-		g.mu.RUnlock()
+			g.mu.RUnlock()
 
-		// Remove expired certificates
-		if len(expired) > 0 {
-			g.mu.Lock()
-			for _, domain := range expired {
-				delete(g.cache, domain)
+			// Remove expired certificates
+			if len(expired) > 0 {
+				g.mu.Lock()
+				for _, domain := range expired {
+					delete(g.cache, domain)
+				}
+				g.mu.Unlock()
+
+				logrus.WithField("count", len(expired)).Debug("Cleaned up expired certificates")
 			}
-			g.mu.Unlock()
-
-			logrus.WithField("count", len(expired)).Debug("Cleaned up expired certificates")
 		}
 	}
+}
+
+// Stop gracefully shuts down the certificate generator
+func (g *CertGenerator) Stop() {
+	close(g.shutdownCh)
+	g.wg.Wait()
 }
 
 // getDNSNames returns the DNS names for a certificate based on security configuration

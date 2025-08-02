@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"dnshield/internal/dns"
+	"dnshield/internal/utils"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,7 +23,7 @@ type Server struct {
 	statusCallbacks []func() Status
 	server          *http.Server
 	dnsManager      dns.DNSManager
-	authManager     *APITokenManager
+	rbacManager     *RBACManager
 	rateLimiter     *RateLimiter
 }
 
@@ -84,7 +87,7 @@ func NewServer(dnsManager dns.DNSManager) *Server {
 			AllowQuit:  true,
 		},
 		dnsManager:  dnsManager,
-		authManager: NewAPITokenManager(),
+		rbacManager: NewRBACManager(),
 		rateLimiter: NewRateLimiter(100, time.Minute), // 100 requests per minute per IP
 	}
 }
@@ -95,26 +98,26 @@ func (s *Server) Start(port int) error {
 	// Apply rate limiting to all endpoints
 	rl := s.rateLimiter.RateLimitMiddleware
 
-	// Public endpoints (no auth required)
-	mux.HandleFunc("/api/health", rl(PublicEndpoint(s.handleHealth)))
-	mux.HandleFunc("/api/status", rl(PublicEndpoint(s.handleStatus)))
+	// Public endpoints (no authentication required)
+	mux.HandleFunc("/api/health", rl(s.PublicEndpoint(s.handleHealth)))
 
-	// Protected endpoints (auth required)
-	auth := s.authManager.AuthMiddleware
-	
-	// Core endpoints
-	mux.HandleFunc("/api/statistics", rl(auth(s.handleStatistics)))
-	mux.HandleFunc("/api/recent-blocked", rl(auth(s.handleRecentBlocked)))
-	mux.HandleFunc("/api/config", rl(auth(s.handleConfig)))
+	// Core endpoints (viewer access)
+	mux.HandleFunc("/api/status", rl(s.rbacMiddleware(s.handleStatus, PermissionViewStatus)))
+	mux.HandleFunc("/api/statistics", rl(s.rbacMiddleware(s.handleStatistics, PermissionViewStats)))
+	mux.HandleFunc("/api/recent-blocked", rl(s.rbacMiddleware(s.handleRecentBlocked, PermissionViewStats)))
+	mux.HandleFunc("/api/config", rl(s.rbacMiddleware(s.handleConfig, PermissionViewConfig)))
 
-	// Control endpoints
-	mux.HandleFunc("/api/pause", rl(auth(s.handlePause)))
-	mux.HandleFunc("/api/resume", rl(auth(s.handleResume)))
-	mux.HandleFunc("/api/refresh-rules", rl(auth(s.handleRefreshRules)))
-	mux.HandleFunc("/api/clear-cache", rl(auth(s.handleClearCache)))
+	// Configuration modification endpoint (admin only)
+	mux.HandleFunc("/api/config/update", rl(s.rbacMiddleware(s.handleConfigUpdate, PermissionModifyConfig)))
 
-	// WebSocket for real-time updates
-	mux.HandleFunc("/api/ws", rl(auth(s.handleWebSocket)))
+	// Control endpoints (operator access)
+	mux.HandleFunc("/api/pause", rl(s.rbacMiddleware(s.handlePause, PermissionPause)))
+	mux.HandleFunc("/api/resume", rl(s.rbacMiddleware(s.handleResume, PermissionResume)))
+	mux.HandleFunc("/api/refresh-rules", rl(s.rbacMiddleware(s.handleRefreshRules, PermissionRefreshRules)))
+	mux.HandleFunc("/api/clear-cache", rl(s.rbacMiddleware(s.handleClearCache, PermissionClearCache)))
+
+	// WebSocket for real-time updates (viewer access)
+	mux.HandleFunc("/api/ws", rl(s.rbacMiddleware(s.handleWebSocket, PermissionViewStatus)))
 
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf("127.0.0.1:%d", port),
@@ -418,4 +421,64 @@ func (s *Server) UpdateStats(stats *Statistics) {
 	s.mu.Lock()
 	s.stats = stats
 	s.mu.Unlock()
+}
+
+// LoadAPIKeys loads API keys from the persistent store
+func (s *Server) LoadAPIKeys() error {
+	homeDir, _ := os.UserHomeDir()
+	storePath := filepath.Join(homeDir, ".dnshield", "api_keys.json")
+	
+	// If file doesn't exist, skip loading
+	info, err := os.Stat(storePath)
+	if os.IsNotExist(err) {
+		logrus.Info("No API keys file found, starting with empty key store")
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	
+	// Check file size
+	if info.Size() > utils.MaxConfigFileSize {
+		return fmt.Errorf("API key store file exceeds maximum size of %d bytes", utils.MaxConfigFileSize)
+	}
+	
+	data, err := os.ReadFile(storePath)
+	if err != nil {
+		return fmt.Errorf("failed to read API keys: %w", err)
+	}
+	
+	var store struct {
+		Keys map[string]struct {
+			Key       string    `json:"key"`
+			Role      string    `json:"role"`
+			CreatedAt time.Time `json:"created_at"`
+			ExpiresAt time.Time `json:"expires_at,omitempty"`
+			Disabled  bool      `json:"disabled"`
+		} `json:"keys"`
+	}
+	
+	if err := json.Unmarshal(data, &store); err != nil {
+		return fmt.Errorf("failed to parse API keys: %w", err)
+	}
+	
+	// Load keys into RBAC manager
+	for _, info := range store.Keys {
+		if info.Disabled {
+			continue
+		}
+		
+		var expiration time.Duration
+		if !info.ExpiresAt.IsZero() {
+			expiration = time.Until(info.ExpiresAt)
+			if expiration < 0 {
+				continue // Skip expired keys
+			}
+		}
+		
+		s.rbacManager.AddAPIKey(info.Key, Role(info.Role), expiration)
+	}
+	
+	logrus.Infof("Loaded %d active API keys", len(s.rbacManager.apiKeys))
+	return nil
 }

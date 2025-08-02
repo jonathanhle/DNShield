@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"dnshield/internal/config"
+	"dnshield/internal/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -118,10 +119,15 @@ func (f *EnterpriseFetcher) fetchFile(ctx context.Context, key string) FetchResu
 	}
 	defer resp.Body.Close()
 
-	// Read content
-	content := make([]byte, aws.ToInt64(resp.ContentLength))
-	_, err = resp.Body.Read(content)
-	if err != nil && err.Error() != "EOF" {
+	// Check content length
+	contentLength := aws.ToInt64(resp.ContentLength)
+	if contentLength > utils.MaxS3ObjectSize {
+		return FetchResult{Key: key, Error: fmt.Errorf("S3 object exceeds maximum size of %d bytes", utils.MaxS3ObjectSize)}
+	}
+	
+	// Read content with size limit
+	content, err := utils.ReadAllLimited(resp.Body, utils.MaxS3ObjectSize)
+	if err != nil {
 		return FetchResult{Key: key, Error: err}
 	}
 
@@ -168,6 +174,11 @@ func (f *EnterpriseFetcher) FetchEnterpriseRules() (*EnterpriseRules, error) {
 	}
 
 	if deviceMappingResult.Content != nil {
+		// Validate YAML before parsing
+		if err := utils.SafeYAMLUnmarshal(deviceMappingResult.Content, nil, utils.MaxRulesFileSize); err != nil {
+			return nil, fmt.Errorf("device mapping YAML validation failed: %v", err)
+		}
+		
 		var deviceMapping config.DeviceMapping
 		if err := yaml.Unmarshal(deviceMappingResult.Content, &deviceMapping); err != nil {
 			return nil, fmt.Errorf("failed to parse device mapping: %v", err)
@@ -195,8 +206,12 @@ func (f *EnterpriseFetcher) FetchEnterpriseRules() (*EnterpriseRules, error) {
 	if result.UserEmail != "" {
 		userGroupsResult := f.fetchFile(ctx, f.paths.UserGroups)
 		if userGroupsResult.Error == nil && userGroupsResult.Content != nil {
-			var userGroups config.UserGroups
-			if err := yaml.Unmarshal(userGroupsResult.Content, &userGroups); err == nil {
+			// Validate YAML before parsing
+			if err := utils.SafeYAMLUnmarshal(userGroupsResult.Content, nil, utils.MaxRulesFileSize); err != nil {
+				logrus.WithError(err).Warn("User groups YAML validation failed")
+			} else {
+				var userGroups config.UserGroups
+				if err := yaml.Unmarshal(userGroupsResult.Content, &userGroups); err == nil {
 				// Check direct override first
 				if group, ok := userGroups.UserOverrides[result.UserEmail]; ok {
 					result.GroupName = group
@@ -215,6 +230,7 @@ func (f *EnterpriseFetcher) FetchEnterpriseRules() (*EnterpriseRules, error) {
 						}
 					}
 				}
+				}
 			}
 		}
 	}
@@ -228,10 +244,15 @@ func (f *EnterpriseFetcher) FetchEnterpriseRules() (*EnterpriseRules, error) {
 	// Step 3: Fetch base rules (everyone gets these)
 	baseResult := f.fetchFile(ctx, f.paths.Base)
 	if baseResult.Error == nil && baseResult.Content != nil {
-		var baseRules config.Rules
-		if err := yaml.Unmarshal(baseResult.Content, &baseRules); err == nil {
+		// Validate YAML before parsing
+		if err := utils.SafeYAMLUnmarshal(baseResult.Content, nil, utils.MaxRulesFileSize); err != nil {
+			logrus.WithError(err).Warn("Base rules YAML validation failed")
+		} else {
+			var baseRules config.Rules
+			if err := yaml.Unmarshal(baseResult.Content, &baseRules); err == nil {
 			baseRules.Normalize()
-			result.BaseRules = &baseRules
+				result.BaseRules = &baseRules
+			}
 		}
 	}
 
@@ -240,10 +261,15 @@ func (f *EnterpriseFetcher) FetchEnterpriseRules() (*EnterpriseRules, error) {
 		groupKey := path.Join(f.paths.GroupsDir, result.GroupName+".yaml")
 		groupResult := f.fetchFile(ctx, groupKey)
 		if groupResult.Error == nil && groupResult.Content != nil {
-			var groupRules config.Rules
-			if err := yaml.Unmarshal(groupResult.Content, &groupRules); err == nil {
+			// Validate YAML before parsing
+			if err := utils.SafeYAMLUnmarshal(groupResult.Content, nil, utils.MaxRulesFileSize); err != nil {
+				logrus.WithError(err).Warn("Group rules YAML validation failed")
+			} else {
+				var groupRules config.Rules
+				if err := yaml.Unmarshal(groupResult.Content, &groupRules); err == nil {
 				groupRules.Normalize()
-				result.GroupRules = &groupRules
+					result.GroupRules = &groupRules
+				}
 			}
 		}
 	}
@@ -253,10 +279,15 @@ func (f *EnterpriseFetcher) FetchEnterpriseRules() (*EnterpriseRules, error) {
 		overrideKey := path.Join(f.paths.UserOverridesDir, result.UserEmail+".yaml")
 		overrideResult := f.fetchFile(ctx, overrideKey)
 		if overrideResult.Error == nil && overrideResult.Content != nil {
-			var userRules config.Rules
-			if err := yaml.Unmarshal(overrideResult.Content, &userRules); err == nil {
+			// Validate YAML before parsing
+			if err := utils.SafeYAMLUnmarshal(overrideResult.Content, nil, utils.MaxRulesFileSize); err != nil {
+				logrus.WithError(err).Warn("User override rules YAML validation failed")
+			} else {
+				var userRules config.Rules
+				if err := yaml.Unmarshal(overrideResult.Content, &userRules); err == nil {
 				userRules.Normalize()
-				result.UserRules = &userRules
+					result.UserRules = &userRules
+				}
 			}
 		}
 	}

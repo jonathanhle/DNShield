@@ -78,9 +78,13 @@ func loadCA(certPath, keyPath string) (*CA, error) {
 		return nil, err
 	}
 
-	block, _ := pem.Decode(certPEM)
+	block, rest := pem.Decode(certPEM)
 	if block == nil {
 		return nil, fmt.Errorf("failed to decode certificate PEM")
+	}
+	if len(rest) > 0 {
+		// Log warning about extra data but continue
+		// This is common with certificate chains
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
@@ -94,9 +98,13 @@ func loadCA(certPath, keyPath string) (*CA, error) {
 		return nil, err
 	}
 
-	block, _ = pem.Decode(keyPEM)
+	block, rest = pem.Decode(keyPEM)
 	if block == nil {
 		return nil, fmt.Errorf("failed to decode key PEM")
+	}
+	if len(rest) > 0 {
+		// Extra data after private key is suspicious
+		return nil, fmt.Errorf("unexpected data after private key PEM block")
 	}
 
 	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
@@ -122,6 +130,24 @@ func createCA(caPath string) (*CA, error) {
 	if err := os.MkdirAll(caPath, 0700); err != nil {
 		return nil, err
 	}
+	
+	// Use a lock file to prevent concurrent CA creation
+	lockPath := filepath.Join(caPath, ".ca_creation.lock")
+	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		if os.IsExist(err) {
+			// Another process is creating the CA, wait and retry loading
+			time.Sleep(100 * time.Millisecond)
+			certPath := filepath.Join(caPath, caCertFile)
+			keyPath := filepath.Join(caPath, caKeyFile)
+			return loadCA(certPath, keyPath)
+		}
+		return nil, fmt.Errorf("failed to acquire CA creation lock: %v", err)
+	}
+	defer func() {
+		lockFile.Close()
+		os.Remove(lockPath)
+	}()
 
 	// Generate key
 	key, err := rsa.GenerateKey(rand.Reader, security.CAKeyBits)

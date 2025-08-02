@@ -94,6 +94,7 @@ Test it by visiting a blocked domain like `https://doubleclick.net`
 - **MDM Support**: Zero-touch deployment via Jamf/Kandji
 - **Multi-Environment**: Dev/staging/prod rule sets
 - **Statistics**: Query metrics and reporting
+- **API RBAC**: Role-based access control for API endpoints (admin/operator/viewer)
 
 ### DNS Configuration Management
 - **Network-Aware**: Automatically detects and remembers DNS settings for each network
@@ -331,6 +332,9 @@ See [docs/MDM_DEPLOYMENT.md](docs/MDM_DEPLOYMENT.md) for detailed instructions.
 - ✅ Enhanced audit logging (JSON format)
 - ✅ Non-extractable key storage
 - ✅ High-security environment ready
+- ✅ Hardened Runtime with security entitlements
+- ✅ Process security hardening (resource limits, environment sanitization)
+- ✅ Role-based API access control (RBAC)
 
 **v2.0 System Keychain Storage:**
 - CA private keys stored in `/Library/Keychains/System.keychain`

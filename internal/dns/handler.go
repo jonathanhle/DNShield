@@ -8,6 +8,7 @@ import (
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"dnshield/internal/config"
+	"dnshield/internal/utils"
 )
 
 // Handler handles DNS queries
@@ -18,6 +19,7 @@ type Handler struct {
 	cache            *Cache
 	captiveDetector  *CaptivePortalDetector
 	rateLimiter      *RateLimiter
+	queryLimiter     *utils.ConcurrencyLimiter
 	statsCallback    func(query bool, blocked bool, cached bool)
 	blockedCallback  func(domain, rule, clientIP string)
 }
@@ -40,13 +42,27 @@ func NewHandler(blocker *Blocker, dnsCfg *config.DNSConfig, blockIP string, capt
 		rateLimitWindow = time.Second // Default: 1 second window
 	}
 
+	// Validate and cap cache size
+	cacheSize := dnsCfg.CacheSize
+	if cacheSize <= 0 {
+		cacheSize = 10000 // Default
+	}
+	if cacheSize > utils.MaxCacheEntries {
+		logrus.WithFields(logrus.Fields{
+			"requested": cacheSize,
+			"maximum":   utils.MaxCacheEntries,
+		}).Warn("DNS cache size exceeds maximum, capping to limit")
+		cacheSize = utils.MaxCacheEntries
+	}
+
 	return &Handler{
 		blocker:         blocker,
 		upstreams:       dnsCfg.Upstreams,
 		blockIP:         ip,
-		cache:           NewCache(dnsCfg.CacheSize, dnsCfg.CacheTTL),
+		cache:           NewCache(cacheSize, dnsCfg.CacheTTL),
 		captiveDetector: NewCaptivePortalDetector(captivePortalCfg),
 		rateLimiter:     NewRateLimiter(rateLimitQueries, rateLimitWindow),
+		queryLimiter:    utils.NewConcurrencyLimiter(utils.MaxConcurrentDNSQueries),
 	}
 }
 
@@ -85,6 +101,20 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
+	// Check concurrent query limit
+	if !h.queryLimiter.TryAcquire() {
+		logrus.WithFields(logrus.Fields{
+			"client": clientIP.String(),
+			"max":    utils.MaxConcurrentDNSQueries,
+		}).Warn("DNS concurrent query limit exceeded")
+		
+		// Return SERVFAIL for concurrent limit
+		m.Rcode = dns.RcodeServerFailure
+		w.WriteMsg(m)
+		return
+	}
+	defer h.queryLimiter.Release()
+
 	// Handle only A and AAAA queries
 	if len(r.Question) == 0 {
 		w.WriteMsg(m)
@@ -94,10 +124,13 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	question := r.Question[0]
 	domain := strings.TrimSuffix(question.Name, ".")
 
-	logrus.WithFields(logrus.Fields{
-		"domain": domain,
-		"type":   dns.TypeToString[question.Qtype],
-	}).Debug("DNS query received")
+	// Only log in debug mode with PII enabled
+	if logrus.GetLevel() == logrus.DebugLevel {
+		logrus.WithFields(logrus.Fields{
+			"domain": domain,
+			"type":   dns.TypeToString[question.Qtype],
+		}).Debug("DNS query received")
+	}
 
 	// Record query
 	if h.statsCallback != nil {
@@ -212,4 +245,14 @@ func (h *Handler) forwardToUpstream(w dns.ResponseWriter, r *dns.Msg, m *dns.Msg
 // GetCaptivePortalDetector returns the captive portal detector
 func (h *Handler) GetCaptivePortalDetector() *CaptivePortalDetector {
 	return h.captiveDetector
+}
+
+// Stop gracefully shuts down the handler and its components
+func (h *Handler) Stop() {
+	if h.rateLimiter != nil {
+		h.rateLimiter.Stop()
+	}
+	if h.cache != nil {
+		h.cache.Stop()
+	}
 }

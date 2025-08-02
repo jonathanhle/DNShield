@@ -14,6 +14,8 @@ type RateLimiter struct {
 	window      time.Duration // Time window
 	cleanupTime time.Duration // How often to clean up old entries
 	lastCleanup time.Time
+	shutdownCh  chan struct{}
+	wg          sync.WaitGroup
 }
 
 type clientInfo struct {
@@ -28,9 +30,11 @@ func NewRateLimiter(maxQueries int, window time.Duration) *RateLimiter {
 		window:      window,
 		cleanupTime: 5 * time.Minute,
 		lastCleanup: time.Now(),
+		shutdownCh:  make(chan struct{}),
 	}
 	
 	// Start cleanup goroutine
+	rl.wg.Add(1)
 	go rl.cleanupRoutine()
 	
 	return rl
@@ -128,16 +132,22 @@ func (rl *RateLimiter) cleanup() {
 
 // cleanupRoutine runs periodic cleanup
 func (rl *RateLimiter) cleanupRoutine() {
+	defer rl.wg.Done()
 	ticker := time.NewTicker(rl.cleanupTime)
 	defer ticker.Stop()
 	
-	for range ticker.C {
-		rl.cleanup()
+	for {
+		select {
+		case <-rl.shutdownCh:
+			return
+		case <-ticker.C:
+			rl.cleanup()
+		}
 	}
 }
 
 // Stop stops the rate limiter and cleans up resources
 func (rl *RateLimiter) Stop() {
-	// Cleanup will stop when the goroutine exits
-	// In a production implementation, we'd use a context for proper shutdown
+	close(rl.shutdownCh)
+	rl.wg.Wait()
 }

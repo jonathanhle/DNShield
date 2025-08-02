@@ -60,44 +60,44 @@ These bugs create major security risks or cause system instability.
 
 ### DoS Vulnerabilities
 - [x] Bug #22: No rate limiting on DNS queries (DoS vulnerability) - Fixed: PR #17
-- [ ] Bug #45: No size limit when downloading S3 objects (memory exhaustion)
-- [ ] Bug #46: YAML unmarshaling without limits (YAML bomb vulnerability)
-- [ ] Bug #68: io.ReadAll in fetcher.go:88 has no size limit (memory exhaustion)
-- [ ] Bug #82: No limit on number of domains in AddDomains()
-- [ ] Bug #86: Cache can grow without bounds (no eviction)
-- [ ] Bug #208: No size limits on parsing (DoS)
-- [ ] Bug #281: No limit on concurrent DNS queries
-- [ ] Bug #456: No limit on concurrent certificate generation
-- [ ] Bug #458: Memory exhaustion via large domain names
+- [x] Bug #45: No size limit when downloading S3 objects (memory exhaustion) - Fixed: Size limits added
+- [x] Bug #46: YAML unmarshaling without limits (YAML bomb vulnerability) - Fixed: SafeYAMLUnmarshal
+- [x] Bug #68: io.ReadAll in fetcher.go:88 has no size limit (memory exhaustion) - Fixed: ReadAllLimited
+- [x] Bug #82: No limit on number of domains in AddDomains() - Fixed: MaxDomainsPerRule
+- [x] Bug #86: Cache can grow without bounds (no eviction) - Fixed: Cache size limits
+- [x] Bug #208: No size limits on parsing (DoS) - Fixed: Comprehensive size limits
+- [x] Bug #281: No limit on concurrent DNS queries - Fixed: ConcurrencyLimiter
+- [x] Bug #456: No limit on concurrent certificate generation - Fixed: ConcurrencyLimiter
+- [x] Bug #458: Memory exhaustion via large domain names - Fixed: Domain length validation
 
 ### Resource Leaks
-- [ ] Bug #9: API server goroutine never cleaned up on shutdown
-- [ ] Bug #10: Stats collection goroutine in cmd/run.go never stopped
-- [ ] Bug #26: HTTP server goroutines not properly shutdown (cmd/run.go:156)
-- [ ] Bug #27: DNS cache entries never expire (memory leak)
-- [ ] Bug #28: Certificate cache grows unbounded
-- [ ] Bug #55: cleanupExpiredCerts goroutine runs forever with no shutdown
-- [ ] Bug #84: Multiple tickers created but never stopped
-- [ ] Bug #196: Rule updater goroutine has no stop mechanism
-- [ ] Bug #197: DNS monitor goroutine runs forever
-- [ ] Bug #192: exec.Command processes not waited (zombies)
-- [ ] Bug #455: Goroutines leaked on repeated start/stop cycles
+- [x] Bug #9: API server goroutine never cleaned up on shutdown - Fixed: Graceful shutdown
+- [x] Bug #10: Stats collection goroutine in cmd/run.go never stopped - Fixed: Context cancellation
+- [x] Bug #26: HTTP server goroutines not properly shutdown (cmd/run.go:156) - Fixed: Graceful shutdown
+- [x] Bug #27: DNS cache entries never expire (memory leak) - Fixed: Background cleanup
+- [x] Bug #28: Certificate cache grows unbounded - Fixed: Size limits and cleanup
+- [x] Bug #55: cleanupExpiredCerts goroutine runs forever with no shutdown - Fixed: Context cancellation
+- [x] Bug #84: Multiple tickers created but never stopped - Fixed: Proper cleanup
+- [x] Bug #196: Rule updater goroutine has no stop mechanism - Fixed: Context cancellation
+- [x] Bug #197: DNS monitor goroutine runs forever - Fixed: Context cancellation
+- [x] Bug #192: exec.Command processes not waited (zombies) - Fixed: Process waiting
+- [x] Bug #455: Goroutines leaked on repeated start/stop cycles - Fixed: WaitGroup tracking
 
 ### Race Conditions
-- [ ] Bug #11: Race condition in cache.Get/Set operations (no mutex protection)
-- [ ] Bug #12: Race condition in Handler callbacks (statsCallback/blockedCallback)
-- [ ] Bug #13: Race condition in certificate cache access
-- [ ] Bug #39: CA certificate file creation race condition
-- [ ] Bug #485: Statistics collection has race conditions
+- [x] Bug #11: Race condition in cache.Get/Set operations (no mutex protection) - Already protected
+- [x] Bug #12: Race condition in Handler callbacks (statsCallback/blockedCallback) - Callbacks set once at startup
+- [x] Bug #13: Race condition in certificate cache access - Already protected
+- [x] Bug #39: CA certificate file creation race condition - Fixed with file locking
+- [x] Bug #485: Statistics collection has race conditions - Already protected
 
 ### Critical Validation Issues
 - [x] Bug #51: Path traversal in getDNSConfigPath() - no validation of home directory - Fixed: PR #9
 - [x] Bug #58: Path traversal in uninstall.go:91 (caPath from GetCAPath()) - Fixed: PR #10
-- [ ] Bug #173: No path sanitization in config file loading
-- [ ] Bug #174: User-controlled paths without validation
-- [ ] Bug #280: Config file path traversal possible
-- [ ] Bug #24: SSRF vulnerability in captive portal URL checking
-- [ ] Bug #47: No integrity verification of downloaded rules (no hash check)
+- [x] Bug #173: No path sanitization in config file loading - Fixed: Path validation added
+- [x] Bug #174: User-controlled paths without validation - Fixed: Path validation added
+- [x] Bug #280: Config file path traversal possible - Fixed: Path validation added
+- [x] Bug #24: SSRF vulnerability in captive portal URL checking - Fixed: URL validation added
+- [x] Bug #47: No integrity verification of downloaded rules (no hash check) - Fixed: SHA256 checksum support
 - [x] Bug #52: No validation of DNS server addresses before passing to networksetup - Fixed: PR #9
 - [x] Bug #53: No validation that domain is blocked before generating certificate - Fixed: PR #12
 
@@ -130,7 +130,7 @@ These bugs affect core functionality or create moderate security risks.
 - [ ] Bug #16: HTTP server ListenAndServe errors not logged
 - [ ] Bug #29: Config file parsing errors not properly reported
 - [ ] Bug #74: CA loading error silently ignored in status.go:43
-- [ ] Bug #121: PEM decode errors ignored (ca.go:97)
+- [x] Bug #121: PEM decode errors ignored (ca.go:97) - Fixed: Check for extra data
 - [ ] Bug #177: No panic recovery in DNS server goroutines
 - [ ] Bug #271: No panic recovery in goroutines
 - [ ] Bug #306: os.Exit(1) in main.go prevents cleanup

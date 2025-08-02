@@ -81,10 +81,16 @@ func (s *Server) Stop() error {
 		return nil
 	}
 
+	// Stop all DNS servers
 	for _, server := range s.servers {
 		if err := server.Shutdown(); err != nil {
 			logrus.WithError(err).Warn("Error shutting down DNS server")
 		}
+	}
+
+	// Stop the handler and its components
+	if s.handler != nil {
+		s.handler.Stop()
 	}
 
 	s.started = false
