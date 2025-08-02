@@ -3,40 +3,8 @@ package config
 import (
 	"fmt"
 	"net/url"
-	"os"
-
-	"github.com/sirupsen/logrus"
 )
 
-// ValidateCredentialSecurity checks for insecure credential practices
-func ValidateCredentialSecurity(cfg *Config) {
-	warnings := []string{}
-
-	// Check for AWS credentials in config
-	if cfg.S3.AccessKeyID != "" || cfg.S3.SecretKey != "" {
-		warnings = append(warnings, "AWS credentials found in configuration file - consider using environment variables or IAM roles")
-	}
-
-	// Check for Splunk token in config
-	if cfg.Logging.Splunk.Enabled && cfg.Logging.Splunk.Token != "" {
-		warnings = append(warnings, "Splunk HEC token found in configuration file - consider using environment variables")
-	}
-
-	// Check if running in debug mode
-	if cfg.Agent.LogLevel == "debug" {
-		warnings = append(warnings, "Running in debug mode - sensitive data may be exposed in logs")
-		
-		// Extra warning if PII logging is enabled
-		if os.Getenv("DNSHIELD_ENABLE_PII_LOGGING") == "true" {
-			warnings = append(warnings, "PII logging is enabled - client IPs and domains will be logged")
-		}
-	}
-
-	// Log warnings
-	for _, warning := range warnings {
-		logrus.Warn(fmt.Sprintf("SECURITY: %s", warning))
-	}
-}
 
 // SanitizeConfigForLogging returns a sanitized version of the config for logging
 func SanitizeConfigForLogging(cfg *Config) map[string]interface{} {
@@ -146,23 +114,6 @@ func ValidateConfig(cfg *Config) error {
 		// Basic hostname validation
 		if u.Hostname() == "" {
 			return fmt.Errorf("Splunk endpoint must have a hostname")
-		}
-	}
-	
-	// Validate external blocklist URLs
-	for _, source := range cfg.Rules.BlockSources {
-		// Use a simplified validation for config-time checks
-		u, err := url.Parse(source)
-		if err != nil {
-			return fmt.Errorf("invalid blocklist URL %s: %v", source, err)
-		}
-		
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return fmt.Errorf("blocklist URL must use HTTP or HTTPS: %s", source)
-		}
-		
-		if u.Hostname() == "" {
-			return fmt.Errorf("blocklist URL must have a hostname: %s", source)
 		}
 	}
 
