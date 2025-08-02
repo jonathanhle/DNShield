@@ -33,21 +33,28 @@ func NewEnterpriseFetcher(cfg *config.S3Config) (*EnterpriseFetcher, error) {
 	// Configure AWS SDK
 	ctx := context.Background()
 
-	var awsCfg aws.Config
-	var err error
+	// Get credentials securely
+	creds, err := config.GetAWSCredentials(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS credentials: %v", err)
+	}
 
-	if cfg.AccessKeyID != "" && cfg.SecretKey != "" {
-		// Use explicit credentials
+	var awsCfg aws.Config
+
+	// Configure based on credential source
+	switch creds.Source {
+	case config.CredentialSourceEnvironment, config.CredentialSourceConfig:
+		// Use explicit credentials (from env or config)
 		awsCfg, err = awsconfig.LoadDefaultConfig(ctx,
 			awsconfig.WithRegion(cfg.Region),
 			awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
-				cfg.AccessKeyID,
-				cfg.SecretKey,
+				creds.AccessKeyID,
+				creds.SecretAccessKey,
 				"",
 			)),
 		)
-	} else {
-		// Use default credential chain (ENV, IAM role, etc.)
+	default:
+		// Use default credential chain (IAM role, etc.)
 		awsCfg, err = awsconfig.LoadDefaultConfig(ctx,
 			awsconfig.WithRegion(cfg.Region),
 		)
@@ -56,6 +63,9 @@ func NewEnterpriseFetcher(cfg *config.S3Config) (*EnterpriseFetcher, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %v", err)
 	}
+
+	// Log credential source for transparency
+	logrus.Infof("Using AWS credentials from: %s", creds.Source)
 
 	return &EnterpriseFetcher{
 		s3Client:  s3.NewFromConfig(awsCfg),

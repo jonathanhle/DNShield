@@ -39,9 +39,15 @@ s3:
   # How often to check for rule updates
   updateInterval: "5m"
   
-  # AWS credentials (optional - remove to use IAM role or environment variables)
-  # accessKeyId: "AKIAXXXXXXXXX"
-  # secretKey: "xxxxxxxxxxxxx"
+  # AWS credentials - DO NOT PUT CREDENTIALS HERE!
+  # Use one of these secure methods instead:
+  # 1. IAM Role (recommended for EC2/ECS/Lambda)
+  # 2. Environment variables: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+  # 3. AWS CLI credentials file: ~/.aws/credentials
+  #
+  # DEPRECATED - These fields will be removed in a future version:
+  # accessKeyId: ""  # DO NOT USE - Set AWS_ACCESS_KEY_ID environment variable instead
+  # secretKey: ""    # DO NOT USE - Set AWS_SECRET_ACCESS_KEY environment variable instead
   
   # Prefix for audit logs (when logging.s3.enabled=true)
   # Logs will be stored as: <bucket>/<logPrefix>/audit-<hostname>-<timestamp>.json.gz

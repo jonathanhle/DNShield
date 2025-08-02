@@ -77,6 +77,16 @@ func runAgent(opts *RunOptions) error {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
+	// Check for security warnings
+	securityWarnings := config.ValidateCredentialSecurity(cfg)
+	for _, warning := range securityWarnings {
+		logrus.Warnf("SECURITY WARNING: %s", warning)
+	}
+	
+	// Log sanitized config (credentials removed)
+	sanitizedCfg := config.SanitizeConfig(cfg)
+	logrus.Debugf("Loaded configuration: %+v", sanitizedCfg)
+
 	// Set up logging
 	logLevel := cfg.Agent.LogLevel
 	// Allow environment variable override
