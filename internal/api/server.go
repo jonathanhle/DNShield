@@ -102,22 +102,22 @@ func (s *Server) Start(port int) error {
 	mux.HandleFunc("/api/health", rl(s.PublicEndpoint(s.handleHealth)))
 
 	// Core endpoints (viewer access)
-	mux.HandleFunc("/api/status", rl(s.rbacMiddleware(s.handleStatus, PermissionViewStatus)))
-	mux.HandleFunc("/api/statistics", rl(s.rbacMiddleware(s.handleStatistics, PermissionViewStats)))
-	mux.HandleFunc("/api/recent-blocked", rl(s.rbacMiddleware(s.handleRecentBlocked, PermissionViewStats)))
-	mux.HandleFunc("/api/config", rl(s.rbacMiddleware(s.handleConfig, PermissionViewConfig)))
+	mux.HandleFunc("/api/status", rl(s.RBACMiddleware(PermissionViewStatus, s.handleStatus)))
+	mux.HandleFunc("/api/statistics", rl(s.RBACMiddleware(PermissionViewStats, s.handleStatistics)))
+	mux.HandleFunc("/api/recent-blocked", rl(s.RBACMiddleware(PermissionViewStats, s.handleRecentBlocked)))
+	mux.HandleFunc("/api/config", rl(s.RBACMiddleware(PermissionViewConfig, s.handleConfig)))
 
 	// Configuration modification endpoint (admin only)
-	mux.HandleFunc("/api/config/update", rl(s.rbacMiddleware(s.handleConfigUpdate, PermissionModifyConfig)))
+	mux.HandleFunc("/api/config/update", rl(s.RBACMiddleware(PermissionModifyConfig, s.handleConfigUpdate)))
 
 	// Control endpoints (operator access)
-	mux.HandleFunc("/api/pause", rl(s.rbacMiddleware(s.handlePause, PermissionPause)))
-	mux.HandleFunc("/api/resume", rl(s.rbacMiddleware(s.handleResume, PermissionResume)))
-	mux.HandleFunc("/api/refresh-rules", rl(s.rbacMiddleware(s.handleRefreshRules, PermissionRefreshRules)))
-	mux.HandleFunc("/api/clear-cache", rl(s.rbacMiddleware(s.handleClearCache, PermissionClearCache)))
+	mux.HandleFunc("/api/pause", rl(s.RBACMiddleware(PermissionPauseProtection, s.handlePause)))
+	mux.HandleFunc("/api/resume", rl(s.RBACMiddleware(PermissionResumeProtection, s.handleResume)))
+	mux.HandleFunc("/api/refresh-rules", rl(s.RBACMiddleware(PermissionRefreshRules, s.handleRefreshRules)))
+	mux.HandleFunc("/api/clear-cache", rl(s.RBACMiddleware(PermissionClearCache, s.handleClearCache)))
 
 	// WebSocket for real-time updates (viewer access)
-	mux.HandleFunc("/api/ws", rl(s.rbacMiddleware(s.handleWebSocket, PermissionViewStatus)))
+	mux.HandleFunc("/api/ws", rl(s.RBACMiddleware(PermissionViewStatus, s.handleWebSocket)))
 
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf("127.0.0.1:%d", port),

@@ -63,9 +63,16 @@ func SanitizeString(s string) string {
 		return s
 	}
 
-	// Apply regex patterns
-	for _, pattern := range SensitivePatterns {
-		s = pattern.ReplaceAllString(s, "[REDACTED]")
+	// Apply regex patterns with specific redaction strings
+	for i, pattern := range SensitivePatterns {
+		switch i {
+		case 5: // Email pattern
+			s = pattern.ReplaceAllString(s, "[EMAIL-REDACTED]")
+		case 6: // IP pattern
+			s = pattern.ReplaceAllString(s, "[IP-REDACTED]")
+		default:
+			s = pattern.ReplaceAllString(s, "[REDACTED]")
+		}
 	}
 
 	return s
@@ -165,26 +172,17 @@ func (h *SanitizingHook) Levels() []logrus.Level {
 
 // Fire sanitizes log entries before they're written
 func (h *SanitizingHook) Fire(entry *logrus.Entry) error {
-	// Sanitize message
-	entry.Message = SanitizeString(entry.Message)
-	
-	// Sanitize fields
-	if entry.Data != nil {
-		entry.Data = SanitizeFields(entry.Data)
-	}
-	
-	// Remove PII if not enabled
-	if !h.enablePIILogging {
-		// Remove IP addresses from message
-		ipPattern := regexp.MustCompile(`\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b`)
-		entry.Message = ipPattern.ReplaceAllString(entry.Message, "[IP-REDACTED]")
-		
-		// Remove client IPs from fields
-		if _, ok := entry.Data["client_ip"]; ok {
-			entry.Data["client_ip"] = "[IP-REDACTED]"
+	// If PII logging is enabled, only sanitize secrets (not PII)
+	if h.enablePIILogging {
+		entry.Message = sanitizeSecretsOnly(entry.Message)
+		if entry.Data != nil {
+			entry.Data = sanitizeFieldsSecretsOnly(entry.Data)
 		}
-		if _, ok := entry.Data["clientIP"]; ok {
-			entry.Data["clientIP"] = "[IP-REDACTED]"
+	} else {
+		// Sanitize everything including PII
+		entry.Message = SanitizeString(entry.Message)
+		if entry.Data != nil {
+			entry.Data = SanitizeFields(entry.Data)
 		}
 	}
 	
@@ -195,4 +193,52 @@ func (h *SanitizingHook) Fire(entry *logrus.Entry) error {
 func InstallSanitizingHook(enablePII bool) {
 	hook := NewSanitizingHook(enablePII)
 	logrus.AddHook(hook)
+}
+
+// sanitizeSecretsOnly removes only secrets (not PII) from a string
+func sanitizeSecretsOnly(s string) string {
+	// First, check for obvious AWS credentials
+	if strings.Contains(s, "AKIA") || strings.Contains(s, "ASIA") {
+		s = strings.ReplaceAll(s, s, "[REDACTED-AWS-KEY]")
+		return s
+	}
+	
+	// Apply only non-PII patterns (first 5 patterns are secrets, last 2 are PII)
+	for i, pattern := range SensitivePatterns {
+		if i >= 5 { // Skip email (5) and IP (6) patterns
+			break
+		}
+		s = pattern.ReplaceAllString(s, "[REDACTED]")
+	}
+	return s
+}
+
+// sanitizeFieldsSecretsOnly removes only secrets (not PII) from log fields
+func sanitizeFieldsSecretsOnly(fields logrus.Fields) logrus.Fields {
+	sanitized := make(logrus.Fields)
+	
+	for k, v := range fields {
+		// Check if field name is sensitive
+		if SensitiveFieldNames[strings.ToLower(k)] {
+			sanitized[k] = "[REDACTED]"
+			continue
+		}
+		
+		// Sanitize the value (secrets only)
+		switch val := v.(type) {
+		case string:
+			sanitized[k] = sanitizeSecretsOnly(val)
+		case error:
+			if val != nil {
+				sanitized[k] = sanitizeSecretsOnly(val.Error())
+			}
+		case fmt.Stringer:
+			sanitized[k] = sanitizeSecretsOnly(val.String())
+		default:
+			// For other types, convert to string and sanitize
+			sanitized[k] = sanitizeSecretsOnly(fmt.Sprintf("%v", val))
+		}
+	}
+	
+	return sanitized
 }

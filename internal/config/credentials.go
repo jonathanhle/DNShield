@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	
+	"github.com/sirupsen/logrus"
 )
 
 // CredentialSource represents where credentials come from
@@ -91,14 +93,35 @@ func SanitizeConfig(cfg *Config) Config {
 func ValidateCredentialSecurity(cfg *Config) []string {
 	var warnings []string
 	
+	// Check for AWS credentials in config
 	if cfg.S3.AccessKeyID != "" || cfg.S3.SecretKey != "" {
-		warnings = append(warnings, "AWS credentials are stored in config file (insecure)")
+		warnings = append(warnings, "AWS credentials found in configuration file - consider using environment variables or IAM roles")
+	}
+	
+	// Check for Splunk token in config
+	if cfg.Logging.Splunk.Enabled && cfg.Logging.Splunk.Token != "" {
+		warnings = append(warnings, "Splunk HEC token found in configuration file - consider using environment variables")
+	}
+	
+	// Check if running in debug mode
+	if cfg.Agent.LogLevel == "debug" {
+		warnings = append(warnings, "Running in debug mode - sensitive data may be exposed in logs")
+		
+		// Extra warning if PII logging is enabled
+		if os.Getenv("DNSHIELD_ENABLE_PII_LOGGING") == "true" {
+			warnings = append(warnings, "PII logging is enabled - client IPs and domains will be logged")
+		}
 	}
 	
 	// Check if credentials might be in the config file path itself
 	configPath := os.Getenv("DNSHIELD_CONFIG")
 	if configPath != "" && (strings.Contains(configPath, "key") || strings.Contains(configPath, "secret")) {
 		warnings = append(warnings, "Config file path contains potential credentials")
+	}
+	
+	// Log warnings for convenience (caller can still use returned warnings)
+	for _, warning := range warnings {
+		logrus.Warn(fmt.Sprintf("SECURITY: %s", warning))
 	}
 	
 	return warnings
