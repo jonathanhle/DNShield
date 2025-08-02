@@ -25,10 +25,53 @@ type Blocker struct {
 // NewBlocker creates a new domain blocker instance.
 // The blocker maintains thread-safe maps of blocked domains and allowlist entries.
 func NewBlocker() *Blocker {
-	return &Blocker{
+	b := &Blocker{
 		blockedDomains: make(map[string]bool),
 		allowlist:      make(map[string]bool),
 	}
+	
+	// Load default blocking rules for common ad/tracking domains
+	// These provide basic protection even when S3 rules are unavailable
+	b.LoadDefaultRules()
+	
+	return b
+}
+
+// LoadDefaultRules loads a minimal set of default blocking rules
+// for common ad and tracking domains
+func (b *Blocker) LoadDefaultRules() {
+	defaultBlockedDomains := []string{
+		// Common ad networks
+		"doubleclick.net",
+		"googleadservices.com",
+		"googlesyndication.com",
+		"google-analytics.com",
+		"googletagmanager.com",
+		
+		// Analytics and tracking
+		"scorecardresearch.com",
+		"quantserve.com",
+		"outbrain.com",
+		"taboola.com",
+		
+		// Social media tracking
+		"facebook-analytics.com",
+		"analytics.twitter.com",
+		"analytics.tiktok.com",
+		
+		// Known malicious test domains
+		"malware-test-domain.com",
+		"phishing-test.com",
+	}
+	
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	
+	for _, domain := range defaultBlockedDomains {
+		b.blockedDomains[domain] = true
+	}
+	
+	logrus.WithField("count", len(defaultBlockedDomains)).Info("Loaded default blocking rules")
 }
 
 // UpdateDomains updates the blocked domains list
