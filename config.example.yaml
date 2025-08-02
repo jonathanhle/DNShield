@@ -94,7 +94,7 @@ logging:
     enabled: false  # Set to true to enable S3 archival
     batchInterval: "1h"  # How often to upload logs to S3
     compression: "gzip"  # Compression format
-    retention: "90d"     # How long to retain logs
+    retention: "2160h"   # How long to retain logs (90 days)
   
   # Local buffering settings
   local:
