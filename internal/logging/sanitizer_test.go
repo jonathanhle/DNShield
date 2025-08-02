@@ -33,12 +33,12 @@ func TestSanitizeString(t *testing.T) {
 		{
 			name:     "Email address",
 			input:    "User logged in: user@example.com",
-			expected: "User logged in: [REDACTED]",
+			expected: "User logged in: [EMAIL-REDACTED]",
 		},
 		{
 			name:     "IP address",
 			input:    "Connection from 192.168.1.100",
-			expected: "Connection from [REDACTED]",
+			expected: "Connection from [IP-REDACTED]",
 		},
 		{
 			name:     "JWT token",
@@ -86,10 +86,10 @@ func TestSanitizeFields(t *testing.T) {
 	if sanitized["apikey"] != "[REDACTED]" {
 		t.Errorf("Expected apikey to be redacted, got %v", sanitized["apikey"])
 	}
-	if sanitized["user"] != "[REDACTED]" {
+	if sanitized["user"] != "[EMAIL-REDACTED]" {
 		t.Errorf("Expected user email to be redacted, got %v", sanitized["user"])
 	}
-	if sanitized["client_ip"] != "[REDACTED]" {
+	if sanitized["client_ip"] != "[IP-REDACTED]" {
 		t.Errorf("Expected client_ip to be redacted, got %v", sanitized["client_ip"])
 	}
 	if !strings.Contains(sanitized["error"].(string), "[REDACTED") {

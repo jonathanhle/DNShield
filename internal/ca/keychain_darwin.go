@@ -36,7 +36,7 @@ const (
 	keychainAccessGroup = "com.dnshield"
 
 	// Key labels in Keychain
-	caKeyLabel = "DNShield CA Private Key"
+	caKeyLabel = "DNShield-CA-Private-Key"
 )
 
 // validateKeychainParam validates keychain parameters to prevent command injection
